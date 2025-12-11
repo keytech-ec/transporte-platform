@@ -1,0 +1,13 @@
+{
+  "name": "@transporte-platform/dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Dashboard dev script - to be implemented'",
+    "build": "echo 'Dashboard build script - to be implemented'",
+    "lint": "echo 'Dashboard lint script - to be implemented'",
+    "test": "echo 'Dashboard test script - to be implemented'",
+    "type-check": "tsc --noEmit"
+  }
+}
+

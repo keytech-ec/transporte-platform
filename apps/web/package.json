@@ -1,0 +1,13 @@
+{
+  "name": "@transporte-platform/web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Web dev script - to be implemented'",
+    "build": "echo 'Web build script - to be implemented'",
+    "lint": "echo 'Web lint script - to be implemented'",
+    "test": "echo 'Web test script - to be implemented'",
+    "type-check": "tsc --noEmit"
+  }
+}
+

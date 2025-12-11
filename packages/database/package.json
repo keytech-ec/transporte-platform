@@ -1,0 +1,17 @@
+{
+  "name": "@transporte-platform/database",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:reset": "prisma migrate reset",
+    "seed": "tsx prisma/seed.ts",
+    "studio": "prisma studio",
+    "generate": "prisma generate",
+    "type-check": "tsc --noEmit"
+  }
+}
+
