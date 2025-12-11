@@ -43,7 +43,11 @@ pnpm prisma generate
 pnpm prisma migrate dev --name init
 
 # 5. Seed de base de datos (opcional)
-pnpm prisma db seed
+# Nota: El seed requiere bcrypt para hashear contraseñas (ya incluido en package.json)
+# Si instalaste dependencias desde la raíz, bcrypt ya está instalado
+pnpm seed
+# O desde la raíz del proyecto:
+# pnpm db:seed
 ```
 
 ### Configuración inicial de la base de datos
@@ -95,6 +99,189 @@ pnpm --filter @transporte-platform/web dev
 # Ejecutar solo el dashboard
 pnpm --filter @transporte-platform/dashboard dev
 ```
+
+## API Backend (NestJS)
+
+La API backend está construida con NestJS 10 y proporciona endpoints RESTful para toda la plataforma.
+
+### Estructura
+
+```
+apps/api/
+├── src/
+│   ├── main.ts                 # Bootstrap de la aplicación
+│   ├── app.module.ts           # Módulo principal
+│   ├── common/                 # Utilidades comunes
+│   │   ├── decorators/        # Decoradores personalizados (@Public, @GetUser)
+│   │   ├── filters/           # Filtros de excepciones globales
+│   │   ├── guards/            # Guards de autenticación/autorización (JWT)
+│   │   ├── interceptors/      # Interceptores de respuesta
+│   │   └── pipes/             # Pipes de validación
+│   ├── config/                # Configuración
+│   │   └── configuration.ts   # Configuración de variables de entorno
+│   ├── modules/               # Módulos de negocio
+│   │   ├── auth/              # Autenticación (JWT strategy, login, registro)
+│   │   ├── providers/         # CRUD proveedores
+│   │   ├── vehicles/          # CRUD vehículos
+│   │   ├── services/          # CRUD servicios/rutas
+│   │   ├── trips/             # CRUD viajes programados
+│   │   ├── reservations/      # Reservas (crear, confirmar, cancelar)
+│   │   ├── payments/          # Integración con gateways de pago
+│   │   └── customers/         # CRUD clientes
+│   └── prisma/                # Servicio de Prisma
+│       ├── prisma.service.ts
+│       └── prisma.module.ts
+├── test/                      # Tests (unitarios y e2e)
+├── package.json
+├── tsconfig.json
+├── nest-cli.json
+└── .env                       # Variables de entorno
+```
+
+### Características
+
+- ✅ **NestJS 10** con TypeScript strict mode
+- ✅ **Prisma ORM** integrado con `@transporte-platform/database`
+- ✅ **ConfigModule** con validación de variables de entorno
+- ✅ **Global Exception Filter** para manejo consistente de errores
+- ✅ **Response Interceptor** para formato de respuesta uniforme
+- ✅ **ValidationPipe global** con `class-validator` y `class-transformer`
+- ✅ **Swagger/OpenAPI** documentación en `/api/docs`
+- ✅ **CORS** habilitado y configurable
+- ✅ **Helmet** para seguridad HTTP
+- ✅ **JWT Authentication** con Passport strategy
+- ✅ **8 módulos base** con estructura completa (controller, service, DTOs)
+
+### Configuración
+
+La API requiere un archivo `.env` en `apps/api/` con las siguientes variables:
+
+```env
+# Server
+PORT=3001
+
+# Database
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/transporte_db?schema=public"
+
+# JWT
+JWT_SECRET="your-secret-key-change-in-production"
+JWT_EXPIRES_IN="1d"
+
+# CORS
+CORS_ORIGIN="*"
+```
+
+**Nota**: El archivo `.env` de la API puede heredar `DATABASE_URL` del `.env` de la raíz del proyecto.
+
+### Endpoints
+
+- **API Base**: `http://localhost:3001/api`
+- **Swagger Documentation**: `http://localhost:3001/api/docs`
+
+### Módulos Disponibles
+
+#### 1. Auth (`/api/auth`)
+- `POST /api/auth/login` - Iniciar sesión
+- `POST /api/auth/register` - Registrar nuevo usuario
+
+#### 2. Providers (`/api/providers`)
+- `GET /api/providers` - Listar todos los proveedores
+- `GET /api/providers/:id` - Obtener proveedor por ID
+- `POST /api/providers` - Crear proveedor
+- `PUT /api/providers/:id` - Actualizar proveedor
+- `DELETE /api/providers/:id` - Eliminar proveedor
+
+#### 3. Vehicles (`/api/vehicles`)
+- `GET /api/vehicles` - Listar todos los vehículos
+- `GET /api/vehicles/:id` - Obtener vehículo por ID
+- `POST /api/vehicles` - Crear vehículo
+- `PUT /api/vehicles/:id` - Actualizar vehículo
+- `DELETE /api/vehicles/:id` - Eliminar vehículo
+
+#### 4. Services (`/api/services`)
+- `GET /api/services` - Listar todos los servicios/rutas
+- `GET /api/services/:id` - Obtener servicio por ID
+- `POST /api/services` - Crear servicio
+- `PUT /api/services/:id` - Actualizar servicio
+- `DELETE /api/services/:id` - Eliminar servicio
+
+#### 5. Trips (`/api/trips`)
+- `GET /api/trips` - Listar todos los viajes programados
+- `GET /api/trips/:id` - Obtener viaje por ID
+- `POST /api/trips` - Crear viaje programado
+- `PUT /api/trips/:id` - Actualizar viaje
+- `DELETE /api/trips/:id` - Eliminar viaje
+
+#### 6. Reservations (`/api/reservations`)
+- `GET /api/reservations` - Listar todas las reservas
+- `GET /api/reservations/:id` - Obtener reserva por ID
+- `POST /api/reservations` - Crear reserva
+- `PUT /api/reservations/:id/confirm` - Confirmar reserva
+- `PUT /api/reservations/:id/cancel` - Cancelar reserva
+
+#### 7. Payments (`/api/payments`)
+- `POST /api/payments/process` - Procesar pago
+- `GET /api/payments/:id` - Obtener transacción por ID
+- `POST /api/payments/:id/refund` - Reembolsar pago
+
+#### 8. Customers (`/api/customers`)
+- `GET /api/customers` - Listar todos los clientes
+- `GET /api/customers/:id` - Obtener cliente por ID
+- `POST /api/customers` - Crear cliente
+- `PUT /api/customers/:id` - Actualizar cliente
+- `DELETE /api/customers/:id` - Eliminar cliente
+
+### Scripts de la API
+
+```bash
+# Desarrollo (watch mode)
+pnpm --filter @transporte-platform/api dev
+
+# Build
+pnpm --filter @transporte-platform/api build
+
+# Ejecutar producción
+pnpm --filter @transporte-platform/api start:prod
+
+# Tests
+pnpm --filter @transporte-platform/api test
+pnpm --filter @transporte-platform/api test:e2e
+
+# Linting
+pnpm --filter @transporte-platform/api lint
+
+# Type checking
+pnpm --filter @transporte-platform/api type-check
+```
+
+### Documentación Swagger
+
+Una vez que la API esté ejecutándose, puedes acceder a la documentación interactiva de Swagger en:
+
+```
+http://localhost:3001/api/docs
+```
+
+La documentación incluye:
+- Descripción de todos los endpoints
+- Esquemas de request/response
+- Ejemplos de DTOs
+- Autenticación Bearer Token (JWT)
+- Pruebas interactivas de endpoints
+
+### Estado de Implementación
+
+Los módulos están creados con estructura base completa (controllers, services, DTOs), pero la lógica de negocio está marcada con `TODO` y debe ser implementada. Cada servicio tiene métodos placeholder que deben ser completados usando `PrismaService`.
+
+### Próximos Pasos de Desarrollo
+
+1. Implementar lógica de autenticación en `AuthService` (login, registro, JWT)
+2. Implementar CRUD completo en cada módulo usando `PrismaService`
+3. Agregar validaciones de negocio y reglas de autorización
+4. Implementar guards de autorización por roles (SUPER_ADMIN, PROVIDER_ADMIN, etc.)
+5. Agregar tests unitarios y e2e
+6. Implementar integración con gateways de pago (Deuna, PayPhone)
+7. Agregar filtrado, paginación y ordenamiento en endpoints de listado
 
 ## Base de Datos
 
@@ -182,7 +369,22 @@ pnpm prisma validate
 
 ## Datos de Prueba (Seed)
 
-El seed (`packages/database/prisma/seed.ts`) incluye datos realistas para Ecuador:
+El seed (`packages/database/prisma/seed.ts`) incluye datos realistas para Ecuador.
+
+**Nota importante**: El seed requiere la dependencia `bcrypt` para hashear las contraseñas de los usuarios. Esta dependencia ya está incluida en `packages/database/package.json` y se instala automáticamente al ejecutar `pnpm install` desde la raíz del proyecto.
+
+### Ejecutar el seed
+
+```bash
+# Desde packages/database
+cd packages/database
+pnpm seed
+
+# O desde la raíz del proyecto
+pnpm db:seed
+```
+
+### Datos incluidos:
 
 ### Providers (2)
 - **Cotratudossa**
@@ -234,6 +436,10 @@ Los asientos se generan automáticamente para cada viaje según el vehículo asi
 ### Funciones Helper
 - `generateBookingReference()` - Genera referencias de reserva únicas (8 caracteres alfanuméricos)
 - `generateSeats()` - Genera asientos automáticamente según el layout 2-2 del vehículo
+
+### Dependencias del Seed
+- `bcrypt` - Para hashear contraseñas de usuarios (versión 5.1.1)
+- `@types/bcrypt` - Tipos TypeScript para bcrypt (dev dependency)
 
 ## Tecnologías
 
