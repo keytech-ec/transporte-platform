@@ -134,7 +134,15 @@ apps/api/
 │   │   │   ├── exceptions/   # Excepciones personalizadas de negocio
 │   │   │   ├── utils/        # Utilidades (generación de booking reference)
 │   │   │   └── seat-lock-scheduler.service.ts  # Scheduler para liberar asientos
-│   │   ├── payments/          # Integración con gateways de pago
+│   │   ├── payments/          # Pagos (completamente implementado)
+│   │   │   ├── dto/          # DTOs para creación de links de pago
+│   │   │   ├── gateways/     # Integraciones con DeUNA y Payphone
+│   │   │   │   ├── payment-gateway.interface.ts
+│   │   │   │   ├── deuna.gateway.ts
+│   │   │   │   └── payphone.gateway.ts
+│   │   │   └── webhooks/     # Handlers de webhooks
+│   │   │       ├── deuna.webhook.ts
+│   │   │       └── payphone.webhook.ts
 │   │   └── customers/         # CRUD clientes
 │   └── prisma/                # Servicio de Prisma
 │       ├── prisma.service.ts
@@ -162,7 +170,9 @@ apps/api/
 - ✅ **Guards y decoradores** para protección de rutas y autorización
 - ✅ **8 módulos base** con estructura completa (controller, service, DTOs)
 - ✅ **Módulo de Reservas** completamente funcional con todas las operaciones críticas
+- ✅ **Módulo de Pagos** completamente funcional con integración a DeUNA y Payphone
 - ✅ **Scheduler de asientos** para liberar automáticamente bloqueos expirados (cada minuto)
+- ✅ **Sistema de comisiones** automático basado en provider.commissionRate
 
 ### Configuración
 
@@ -181,9 +191,24 @@ JWT_EXPIRES_IN="7d"
 
 # CORS
 CORS_ORIGIN="*"
+
+# Payment Gateways (opcional para MVP - si no se configuran, funcionan en modo mock)
+DEUNA_API_KEY=your-deuna-api-key
+DEUNA_WEBHOOK_SECRET=your-deuna-webhook-secret
+DEUNA_BASE_URL=https://api.deuna.com
+
+PAYPHONE_TOKEN=your-payphone-token
+PAYPHONE_STORE_ID=your-payphone-store-id
+PAYPHONE_WEBHOOK_SECRET=your-payphone-webhook-secret
+PAYPHONE_BASE_URL=https://pay.payphonetodoesposible.com
+
+# App URL (para callbacks de pago)
+APP_URL=http://localhost:3000
 ```
 
 **Nota**: El archivo `.env` de la API puede heredar `DATABASE_URL` del `.env` de la raíz del proyecto.
+
+**Nota sobre Pagos**: Si no se configuran las credenciales de los gateways de pago, el sistema funcionará en modo mock para desarrollo, generando URLs de pago ficticias y confirmando pagos automáticamente después de 5 segundos.
 
 ### Endpoints
 
@@ -264,10 +289,31 @@ CORS_ORIGIN="*"
 - `GET /api/reservations` - Listar todas las reservas (legacy)
 - `GET /api/reservations/:id` - Obtener reserva por ID (legacy)
 
-#### 7. Payments (`/api/payments`)
-- `POST /api/payments/process` - Procesar pago
-- `GET /api/payments/:id` - Obtener transacción por ID
-- `POST /api/payments/:id/refund` - Reembolsar pago
+#### 7. Payments (`/api/payments`) ✅ **COMPLETAMENTE IMPLEMENTADO**
+- `POST /api/payments/create-link` - Crear link de pago para una reserva
+  - Body: `{ reservationId, gateway: 'DEUNA' | 'PAYPHONE' }`
+  - Genera link de pago con el gateway seleccionado
+  - Guarda Transaction con status PENDING
+  - Calcula comisiones automáticamente (commission = total * provider.commissionRate / 100)
+  - Retorna `paymentUrl` para redirigir al usuario
+- `POST /api/payments/webhooks/deuna` - Webhook de DeUNA (público)
+  - Recibe notificación de DeUNA
+  - Valida firma HMAC
+  - Actualiza Transaction.status
+  - Si exitoso: confirma reserva automáticamente
+  - Retorna 200 OK
+- `POST /api/payments/webhooks/payphone` - Webhook de Payphone (público)
+  - Similar a DeUNA webhook
+  - Valida firma HMAC
+  - Actualiza Transaction.status y confirma reserva si es exitoso
+- `GET /api/payments/reservation/:reservationId` - Obtener estado del pago por ID de reserva
+  - Retorna información de la reserva y última transacción
+- `GET /api/payments/transaction/:id` - Obtener transacción por ID
+  - Retorna detalles completos de la transacción
+- `POST /api/payments/:id/refund` - Iniciar proceso de reembolso
+  - Solo SUPER_ADMIN o PROVIDER_ADMIN
+  - Actualiza Transaction.status a REFUNDED
+  - Actualiza Reservation.status a REFUNDED
 
 #### 8. Customers (`/api/customers`)
 - `GET /api/customers` - Listar todos los clientes
@@ -419,6 +465,17 @@ export class ProvidersController {
   - Scheduler automático para liberar asientos bloqueados expirados
   - Transacciones de Prisma para operaciones críticas
   - Manejo de errores específicos (SeatNotAvailable, ReservationExpired, etc.)
+
+- ✅ **Módulo de Pagos**: Completamente implementado
+  - Integración con gateways DeUNA y Payphone
+  - Creación de links de pago para reservas
+  - Cálculo automático de comisiones (basado en provider.commissionRate)
+  - Webhooks para recibir notificaciones de pago
+  - Validación de firmas HMAC para webhooks
+  - Confirmación automática de reservas al recibir pago exitoso
+  - Sistema de reembolsos (solo SUPER_ADMIN o PROVIDER_ADMIN)
+  - Modo mock para desarrollo (si no hay credenciales configuradas)
+  - Manejo completo de estados de transacciones (PENDING, PROCESSING, COMPLETED, FAILED, REFUNDED)
   
 - ⏳ **Otros módulos**: Estructura base completa (controllers, services, DTOs), pero la lógica de negocio está marcada con `TODO` y debe ser implementada. Cada servicio tiene métodos placeholder que deben ser completados usando `PrismaService`.
 
@@ -427,11 +484,33 @@ export class ProvidersController {
 1. ✅ ~~Implementar lógica de autenticación en `AuthService` (login, registro, JWT)~~ **COMPLETADO**
 2. ✅ ~~Implementar guards de autorización por roles~~ **COMPLETADO**
 3. ✅ ~~Implementar módulo de reservas completo (búsqueda, bloqueo, creación, confirmación, cancelación)~~ **COMPLETADO**
-4. Implementar CRUD completo en otros módulos usando `PrismaService`
-5. Agregar validaciones de negocio y reglas de autorización específicas por módulo
-6. Agregar tests unitarios y e2e
-7. Implementar integración con gateways de pago (Deuna, PayPhone)
-8. Agregar filtrado, paginación y ordenamiento en endpoints de listado
+4. ✅ ~~Implementar integración con gateways de pago (DeUNA, Payphone)~~ **COMPLETADO**
+5. Implementar CRUD completo en otros módulos usando `PrismaService`
+   - Providers: CRUD completo con validaciones
+   - Vehicles: CRUD completo con validaciones
+   - Services: CRUD completo con validaciones
+   - Trips: CRUD completo con validaciones
+   - Customers: CRUD completo con validaciones
+6. Agregar validaciones de negocio y reglas de autorización específicas por módulo
+   - Validar que los usuarios solo puedan acceder a recursos de su provider (excepto SUPER_ADMIN)
+   - Agregar validaciones de negocio específicas por módulo
+7. Agregar filtrado, paginación y ordenamiento en endpoints de listado
+   - Implementar query params para filtros (fecha, estado, provider, etc.)
+   - Agregar paginación con limit/offset o cursor-based
+   - Agregar ordenamiento por diferentes campos
+8. Agregar tests unitarios y e2e
+   - Tests unitarios para servicios críticos (reservations, payments)
+   - Tests e2e para flujos completos (búsqueda → reserva → pago → confirmación)
+9. Mejorar integración de pagos
+   - Configurar webhooks en producción con las URLs correctas
+   - Implementar reintentos para webhooks fallidos
+   - Agregar logging y monitoreo de transacciones
+   - Implementar notificaciones por email/SMS al confirmar reservas
+10. Agregar funcionalidades adicionales
+    - Sistema de notificaciones (email, SMS, push)
+    - Dashboard de analytics y reportes
+    - Exportación de datos (CSV, PDF)
+    - Sistema de cupones y descuentos
 
 ## Base de Datos
 
