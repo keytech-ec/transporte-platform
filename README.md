@@ -120,7 +120,11 @@ apps/api/
 │   ├── config/                # Configuración
 │   │   └── configuration.ts   # Configuración de variables de entorno
 │   ├── modules/               # Módulos de negocio
-│   │   ├── auth/              # Autenticación (JWT strategy, login, registro)
+│   │   ├── auth/              # Autenticación (completamente implementado)
+│   │   │   ├── decorators/   # @CurrentUser, @Roles
+│   │   │   ├── guards/       # RolesGuard
+│   │   │   ├── strategies/   # JwtStrategy, LocalStrategy
+│   │   │   └── dto/          # LoginDto, RegisterDto
 │   │   ├── providers/         # CRUD proveedores
 │   │   ├── vehicles/          # CRUD vehículos
 │   │   ├── services/          # CRUD servicios/rutas
@@ -149,7 +153,9 @@ apps/api/
 - ✅ **Swagger/OpenAPI** documentación en `/api/docs`
 - ✅ **CORS** habilitado y configurable
 - ✅ **Helmet** para seguridad HTTP
-- ✅ **JWT Authentication** con Passport strategy
+- ✅ **JWT Authentication** completamente implementado con Passport strategies
+- ✅ **Sistema de roles** (SUPER_ADMIN, PROVIDER_ADMIN, OPERATOR, VIEWER)
+- ✅ **Guards y decoradores** para protección de rutas y autorización
 - ✅ **8 módulos base** con estructura completa (controller, service, DTOs)
 
 ### Configuración
@@ -165,7 +171,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/transporte_db?schema
 
 # JWT
 JWT_SECRET="your-secret-key-change-in-production"
-JWT_EXPIRES_IN="1d"
+JWT_EXPIRES_IN="7d"
 
 # CORS
 CORS_ORIGIN="*"
@@ -181,8 +187,17 @@ CORS_ORIGIN="*"
 ### Módulos Disponibles
 
 #### 1. Auth (`/api/auth`)
-- `POST /api/auth/login` - Iniciar sesión
-- `POST /api/auth/register` - Registrar nuevo usuario
+- `POST /api/auth/login` - Iniciar sesión (público)
+  - Valida email + password
+  - Retorna JWT con: userId, email, role, providerId
+  - Token expira en 7 días
+- `POST /api/auth/register` - Registrar nuevo usuario (solo SUPER_ADMIN)
+  - Crea usuario vinculado a un provider
+  - Hashea password con bcrypt
+  - Requiere autenticación JWT y rol SUPER_ADMIN
+- `GET /api/auth/me` - Obtener datos del usuario actual (autenticado)
+  - Retorna datos del usuario incluyendo provider si aplica
+- `POST /api/auth/refresh` - Renovar token JWT (autenticado)
 
 #### 2. Providers (`/api/providers`)
 - `GET /api/providers` - Listar todos los proveedores
@@ -269,16 +284,109 @@ La documentación incluye:
 - Autenticación Bearer Token (JWT)
 - Pruebas interactivas de endpoints
 
+### Autenticación y Autorización
+
+El módulo de autenticación está completamente implementado con las siguientes características:
+
+#### Guards
+- **JwtAuthGuard**: Protege rutas autenticadas, respeta el decorador `@Public()`
+- **RolesGuard**: Valida roles permitidos usando el decorador `@Roles()`
+
+#### Decoradores
+- **@Public()**: Marca una ruta como pública (no requiere autenticación)
+- **@Roles(...roles)**: Define los roles permitidos para acceder a una ruta
+- **@CurrentUser()**: Inyecta el usuario actual en los controladores
+
+#### Estrategias
+- **JwtStrategy**: Valida tokens JWT y verifica que el usuario esté activo
+- **LocalStrategy**: Estrategia local para autenticación con email/password
+
+#### Payload del JWT
+El token JWT incluye la siguiente información:
+```typescript
+{
+  sub: string,        // userId
+  email: string,
+  role: UserRole,     // SUPER_ADMIN | PROVIDER_ADMIN | OPERATOR | VIEWER
+  providerId: string | null
+}
+```
+
+#### Ejemplo de uso
+
+```typescript
+// Ruta pública
+@Post('login')
+@Public()
+login(@Body() loginDto: LoginDto) { ... }
+
+// Ruta protegida (requiere autenticación)
+@Get('me')
+@UseGuards(JwtAuthGuard)
+getCurrentUser(@CurrentUser() user: any) { ... }
+
+// Ruta protegida con roles específicos
+@Post('register')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.SUPER_ADMIN)
+register(@Body() registerDto: RegisterDto, @CurrentUser() user: any) { ... }
+```
+
+#### Uso en otros módulos
+
+Para proteger rutas en otros módulos, importa los guards y decoradores:
+
+```typescript
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
+import { UserRole } from '@transporte-platform/database';
+
+@Controller('providers')
+export class ProvidersController {
+  // Ruta pública
+  @Get('public')
+  @Public()
+  getPublicData() { ... }
+
+  // Ruta protegida (cualquier usuario autenticado)
+  @Get('private')
+  @UseGuards(JwtAuthGuard)
+  getPrivateData(@CurrentUser() user: any) {
+    // user contiene: id, email, role, providerId, provider
+  }
+
+  // Ruta solo para SUPER_ADMIN
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  create(@Body() dto: CreateProviderDto) { ... }
+
+  // Ruta para múltiples roles
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.PROVIDER_ADMIN)
+  update(@Param('id') id: string, @Body() dto: UpdateProviderDto) { ... }
+}
+```
+
 ### Estado de Implementación
 
-Los módulos están creados con estructura base completa (controllers, services, DTOs), pero la lógica de negocio está marcada con `TODO` y debe ser implementada. Cada servicio tiene métodos placeholder que deben ser completados usando `PrismaService`.
+- ✅ **Módulo de Autenticación**: Completamente implementado
+  - Login, registro, refresh token, obtener usuario actual
+  - Guards, decoradores y estrategias JWT/Local
+  - Validación de roles y protección de rutas
+  
+- ⏳ **Otros módulos**: Estructura base completa (controllers, services, DTOs), pero la lógica de negocio está marcada con `TODO` y debe ser implementada. Cada servicio tiene métodos placeholder que deben ser completados usando `PrismaService`.
 
 ### Próximos Pasos de Desarrollo
 
-1. Implementar lógica de autenticación en `AuthService` (login, registro, JWT)
-2. Implementar CRUD completo en cada módulo usando `PrismaService`
-3. Agregar validaciones de negocio y reglas de autorización
-4. Implementar guards de autorización por roles (SUPER_ADMIN, PROVIDER_ADMIN, etc.)
+1. ✅ ~~Implementar lógica de autenticación en `AuthService` (login, registro, JWT)~~ **COMPLETADO**
+2. ✅ ~~Implementar guards de autorización por roles~~ **COMPLETADO**
+3. Implementar CRUD completo en cada módulo usando `PrismaService`
+4. Agregar validaciones de negocio y reglas de autorización específicas por módulo
 5. Agregar tests unitarios y e2e
 6. Implementar integración con gateways de pago (Deuna, PayPhone)
 7. Agregar filtrado, paginación y ordenamiento en endpoints de listado
@@ -449,4 +557,7 @@ Los asientos se generan automáticamente para cada viaje según el vehículo asi
 - **Database**: PostgreSQL 15 + Prisma ORM
 - **Cache**: Redis 7
 - **TypeScript**: Strict mode
+- **Autenticación**: JWT (Passport.js) + bcrypt para hashing de passwords
+- **Validación**: class-validator + class-transformer
+- **Documentación API**: Swagger/OpenAPI
 
