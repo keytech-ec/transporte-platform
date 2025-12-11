@@ -117,3 +117,4 @@ Los módulos están creados con estructura base (controller, service, DTOs) pero
 4. Implementar guards de autorización por roles
 5. Agregar tests unitarios y e2e
 
+

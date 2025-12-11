@@ -29,10 +29,19 @@ transport-platform/
 # 1. Instalar dependencias
 pnpm install
 
-# 2. Crear archivo .env (si no existe)
-# El archivo .env debe contener:
-# DATABASE_URL="postgresql://postgres:postgres@localhost:5432/transporte_db?schema=public"
-# REDIS_URL="redis://localhost:6379"
+# 2. Configurar variables de entorno
+# Copia los archivos .env.example a .env en cada ubicación:
+cp .env.example .env                    # Root (opcional, para Prisma)
+cp apps/api/.env.example apps/api/.env # API backend
+cp apps/web/.env.example apps/web/.env.local # Frontend web
+
+# O en Windows PowerShell:
+Copy-Item .env.example .env
+Copy-Item apps\api\.env.example apps\api\.env
+Copy-Item apps\web\.env.example apps\web\.env.local
+
+# Los archivos .env.example contienen valores por defecto para desarrollo.
+# Ajusta los valores según sea necesario (especialmente JWT_SECRET en producción).
 
 # 3. Iniciar servicios Docker (PostgreSQL y Redis)
 docker-compose -f docker/docker-compose.yml up -d
@@ -176,13 +185,24 @@ apps/api/
 
 ### Configuración
 
-La API requiere un archivo `.env` en `apps/api/` con las siguientes variables:
+La API requiere un archivo `.env` en `apps/api/`. Puedes copiar el archivo de ejemplo:
+
+```bash
+# Linux/Mac
+cp apps/api/.env.example apps/api/.env
+
+# Windows PowerShell
+Copy-Item apps\api\.env.example apps\api\.env
+```
+
+El archivo `.env.example` contiene todas las variables necesarias con valores por defecto para desarrollo:
 
 ```env
 # Server
 PORT=3001
 
 # Database
+# Can inherit from root .env or specify here
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/transporte_db?schema=public"
 
 # JWT
@@ -192,21 +212,23 @@ JWT_EXPIRES_IN="7d"
 # CORS
 CORS_ORIGIN="*"
 
-# Payment Gateways (opcional para MVP - si no se configuran, funcionan en modo mock)
-DEUNA_API_KEY=your-deuna-api-key
-DEUNA_WEBHOOK_SECRET=your-deuna-webhook-secret
-DEUNA_BASE_URL=https://api.deuna.com
+# Payment Gateways (optional for MVP - if not configured, works in mock mode)
+# DeUNA Gateway
+# DEUNA_API_KEY=your-deuna-api-key
+# DEUNA_WEBHOOK_SECRET=your-deuna-webhook-secret
+# DEUNA_BASE_URL=https://api.deuna.com
 
-PAYPHONE_TOKEN=your-payphone-token
-PAYPHONE_STORE_ID=your-payphone-store-id
-PAYPHONE_WEBHOOK_SECRET=your-payphone-webhook-secret
-PAYPHONE_BASE_URL=https://pay.payphonetodoesposible.com
+# Payphone Gateway
+# PAYPHONE_TOKEN=your-payphone-token
+# PAYPHONE_STORE_ID=your-payphone-store-id
+# PAYPHONE_WEBHOOK_SECRET=your-payphone-webhook-secret
+# PAYPHONE_BASE_URL=https://pay.payphonetodoesposible.com
 
-# App URL (para callbacks de pago)
+# App URL (for payment callbacks)
 APP_URL=http://localhost:3000
 ```
 
-**Nota**: El archivo `.env` de la API puede heredar `DATABASE_URL` del `.env` de la raíz del proyecto.
+**Nota**: El archivo `.env` de la API puede heredar `DATABASE_URL` del `.env` de la raíz del proyecto si está configurado.
 
 **Nota sobre Pagos**: Si no se configuran las credenciales de los gateways de pago, el sistema funcionará en modo mock para desarrollo, generando URLs de pago ficticias y confirmando pagos automáticamente después de 5 segundos.
 
@@ -560,17 +582,28 @@ El schema de Prisma (`packages/database/prisma/schema.prisma`) incluye los sigui
 
 ### Variables de Entorno
 
-El archivo `.env` en la raíz del proyecto debe contener:
+El archivo `.env` en la raíz del proyecto es opcional pero útil para compartir `DATABASE_URL` entre Prisma y las aplicaciones. Puedes copiarlo del ejemplo:
+
+```bash
+# Linux/Mac
+cp .env.example .env
+
+# Windows PowerShell
+Copy-Item .env.example .env
+```
+
+El archivo `.env.example` contiene:
 
 ```env
 # Database
+# This is used by Prisma and can be inherited by apps
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/transporte_db?schema=public"
 
-# Redis (opcional)
+# Redis (optional)
 REDIS_URL="redis://localhost:6379"
 ```
 
-**Nota**: Para producción, actualiza `DATABASE_URL` con las credenciales de tu base de datos de producción.
+**Nota**: Para producción, actualiza `DATABASE_URL` con las credenciales de tu base de datos de producción en los archivos `.env` correspondientes.
 
 ### Comandos útiles de Prisma
 
@@ -739,11 +772,24 @@ apps/web/
 
 ### Configuración
 
-La aplicación web requiere un archivo `.env.local` en `apps/web/` con:
+La aplicación web requiere un archivo `.env.local` en `apps/web/`. Puedes copiar el archivo de ejemplo:
+
+```bash
+# Linux/Mac
+cp apps/web/.env.example apps/web/.env.local
+
+# Windows PowerShell
+Copy-Item apps\web\.env.example apps\web\.env.local
+```
+
+El archivo `.env.example` contiene:
 
 ```env
+# API URL for frontend
 NEXT_PUBLIC_API_URL=http://localhost:3001/api
 ```
+
+Asegúrate de que la URL coincida con el puerto en el que está corriendo la API (por defecto `3001`).
 
 ### Scripts
 

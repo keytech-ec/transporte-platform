@@ -1,8 +1,5 @@
 import {
   Injectable,
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
@@ -14,12 +11,11 @@ import {
   ReservationExpiredException,
   InvalidLockIdException,
   TripNotFoundException,
-  InsufficientSeatsException,
   ReservationNotFoundException,
   InvalidReservationStatusException,
 } from './exceptions/reservation.exceptions';
 import { generateBookingReference } from './utils/booking-reference.util';
-import { Prisma } from '@transporte-platform/database';
+import { Prisma, DocumentType, ReservationType, BookingChannel } from '@transporte-platform/database';
 
 // Map to store lock information: lockId -> { tripId, seatIds, lockedUntil }
 const lockStore = new Map<
@@ -361,7 +357,7 @@ export class ReservationsService {
       if (!customer) {
         customer = await tx.customer.create({
           data: {
-            documentType: customerInfo.documentType as Prisma.DocumentType,
+            documentType: customerInfo.documentType as DocumentType,
             documentNumber: customerInfo.documentNumber,
             firstName: customerInfo.firstName,
             lastName: customerInfo.lastName,
@@ -407,13 +403,13 @@ export class ReservationsService {
           tripId,
           customerId: customer.id,
           bookingReference,
-          reservationType: reservationType as Prisma.ReservationType,
+          reservationType: reservationType as ReservationType,
           numPassengers: passengers.length,
           subtotal,
           commission,
           total,
           status: 'PENDING',
-          channel: 'WEB' as Prisma.BookingChannel,
+          channel: 'WEB' as BookingChannel,
         },
       });
 
@@ -448,8 +444,8 @@ export class ReservationsService {
           data: {
             reservationId: reservation.id,
             tripSeatId: tripSeat.id,
-            passengerId: passenger.id,
-            seatId,
+            passengerId: passenger!.id,
+            seatId: seatId!,
           },
         });
 
@@ -490,7 +486,7 @@ export class ReservationsService {
   /**
    * 5. Confirm reservation (after payment)
    */
-  async confirm(id: string, confirmReservationDto: ConfirmReservationDto) {
+  async confirm(id: string, _confirmReservationDto: ConfirmReservationDto) {
     return await this.prisma.$transaction(async (tx) => {
       const reservation = await tx.reservation.findUnique({
         where: { id },

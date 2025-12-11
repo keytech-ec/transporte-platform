@@ -10,37 +10,37 @@ export enum BookingMode {
 export class CreateTripDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @IsUUID()
-  serviceId: string;
+  serviceId!: string;
 
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001' })
   @IsUUID()
-  vehicleId: string;
+  vehicleId!: string;
 
   @ApiProperty({ example: '2024-12-15' })
   @IsDateString()
-  departureDate: string;
+  departureDate!: string;
 
   @ApiProperty({ example: '06:00:00' })
   @IsString()
-  departureTime: string;
+  departureTime!: string;
 
   @ApiProperty({ example: 40 })
   @IsInt()
   @Min(1)
-  totalSeats: number;
+  totalSeats!: number;
 
   @ApiProperty({ example: 40 })
   @IsInt()
   @Min(0)
-  availableSeats: number;
+  availableSeats!: number;
 
   @ApiProperty({ example: 8.5 })
   @IsNumber()
   @Min(0)
-  pricePerSeat: number;
+  pricePerSeat!: number;
 
   @ApiProperty({ enum: BookingMode, default: BookingMode.PER_SEAT })
   @IsEnum(BookingMode)
-  bookingMode: BookingMode;
+  bookingMode!: BookingMode;
 }
 

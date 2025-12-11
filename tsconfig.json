@@ -19,6 +19,8 @@
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "incremental": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
       "@transporte-platform/shared": ["./packages/shared/src"],

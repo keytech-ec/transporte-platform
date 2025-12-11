@@ -75,15 +75,21 @@ export class PayphoneGateway implements IPaymentGateway {
         throw new Error(`Payphone API error: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        payment_url?: string;
+        url?: string;
+        transaction_id?: string;
+        id?: string;
+      };
 
       return {
-        paymentUrl: data.payment_url || data.url,
-        transactionId: data.transaction_id || data.id,
-        gatewayTransactionId: data.id,
+        paymentUrl: data.payment_url || data.url || '',
+        transactionId: data.transaction_id || data.id || '',
+        gatewayTransactionId: data.id || '',
       };
     } catch (error) {
-      throw new Error(`Failed to create Payphone payment link: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to create Payphone payment link: ${errorMessage}`);
     }
   }
 

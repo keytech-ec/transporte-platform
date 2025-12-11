@@ -10,19 +10,19 @@ export enum DocumentType {
 export class CreateCustomerDto {
   @ApiProperty({ enum: DocumentType, default: DocumentType.CEDULA })
   @IsEnum(DocumentType)
-  documentType: DocumentType;
+  documentType!: DocumentType;
 
   @ApiProperty({ example: '1234567890' })
   @IsString()
-  documentNumber: string;
+  documentNumber!: string;
 
   @ApiProperty({ example: 'Juan' })
   @IsString()
-  firstName: string;
+  firstName!: string;
 
   @ApiProperty({ example: 'Pérez' })
   @IsString()
-  lastName: string;
+  lastName!: string;
 
   @ApiProperty({ example: 'juan.perez@example.com', required: false })
   @IsOptional()
@@ -31,6 +31,6 @@ export class CreateCustomerDto {
 
   @ApiProperty({ example: '+593 99 1234567' })
   @IsString()
-  phone: string;
+  phone!: string;
 }
 

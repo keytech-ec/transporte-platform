@@ -72,15 +72,20 @@ export class DeunaGateway implements IPaymentGateway {
         throw new Error(`DeUNA API error: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        checkout_url?: string;
+        transaction_id?: string;
+        id?: string;
+      };
 
       return {
-        paymentUrl: data.checkout_url,
-        transactionId: data.transaction_id,
-        gatewayTransactionId: data.id,
+        paymentUrl: data.checkout_url || '',
+        transactionId: data.transaction_id || '',
+        gatewayTransactionId: data.id || '',
       };
     } catch (error) {
-      throw new Error(`Failed to create DeUNA payment link: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to create DeUNA payment link: ${errorMessage}`);
     }
   }
 

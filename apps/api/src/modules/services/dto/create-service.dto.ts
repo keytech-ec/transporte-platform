@@ -4,23 +4,23 @@ import { IsString, IsUUID, IsOptional, IsNumber, Min } from 'class-validator';
 export class CreateServiceDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @IsUUID()
-  providerId: string;
+  providerId!: string;
 
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001' })
   @IsUUID()
-  serviceTypeId: string;
+  serviceTypeId!: string;
 
   @ApiProperty({ example: 'Cuenca' })
   @IsString()
-  origin: string;
+  origin!: string;
 
   @ApiProperty({ example: 'Guayaquil' })
   @IsString()
-  destination: string;
+  destination!: string;
 
   @ApiProperty({ example: 'Cuenca - Guayaquil' })
   @IsString()
-  name: string;
+  name!: string;
 
   @ApiProperty({ example: 8.5, required: false })
   @IsOptional()

@@ -2,13 +2,12 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   IsString,
   IsUUID,
-  IsInt,
   IsEnum,
   IsEmail,
   IsArray,
   ValidateNested,
   ArrayMinSize,
-  Min,
+  IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -34,19 +33,19 @@ export enum DocumentType {
 export class CustomerInfoDto {
   @ApiProperty({ enum: DocumentType, example: DocumentType.CEDULA })
   @IsEnum(DocumentType)
-  documentType: DocumentType;
+  documentType!: DocumentType;
 
   @ApiProperty({ example: '1234567890' })
   @IsString()
-  documentNumber: string;
+  documentNumber!: string;
 
   @ApiProperty({ example: 'Juan' })
   @IsString()
-  firstName: string;
+  firstName!: string;
 
   @ApiProperty({ example: 'Pérez' })
   @IsString()
-  lastName: string;
+  lastName!: string;
 
   @ApiProperty({ example: 'juan.perez@example.com', required: false })
   @IsOptional()
@@ -56,35 +55,35 @@ export class CustomerInfoDto {
 
   @ApiProperty({ example: '+593999999999' })
   @IsString()
-  phone: string;
+  phone!: string;
 }
 
 export class PassengerDto {
   @ApiProperty({ example: '1234567890' })
   @IsString()
-  documentNumber: string;
+  documentNumber!: string;
 
   @ApiProperty({ example: 'María' })
   @IsString()
-  firstName: string;
+  firstName!: string;
 
   @ApiProperty({ example: 'González' })
   @IsString()
-  lastName: string;
+  lastName!: string;
 
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001' })
   @IsUUID()
-  seatId: string;
+  seatId!: string;
 }
 
 export class CreateReservationDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @IsUUID()
-  tripId: string;
+  tripId!: string;
 
   @ApiProperty({ example: 'lock-1234567890', description: 'Lock ID from lock-seats endpoint' })
   @IsString()
-  lockId: string;
+  lockId!: string;
 
   @ApiProperty({
     example: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'],
@@ -93,21 +92,21 @@ export class CreateReservationDto {
   @IsArray()
   @ArrayMinSize(1)
   @IsUUID('4', { each: true })
-  seatIds: string[];
+  seatIds!: string[];
 
   @ApiProperty({ type: CustomerInfoDto })
   @ValidateNested()
   @Type(() => CustomerInfoDto)
-  customer: CustomerInfoDto;
+  customer!: CustomerInfoDto;
 
   @ApiProperty({ type: [PassengerDto], description: 'Array of passengers' })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => PassengerDto)
-  passengers: PassengerDto[];
+  passengers!: PassengerDto[];
 
   @ApiProperty({ enum: ReservationType })
   @IsEnum(ReservationType)
-  reservationType: ReservationType;
+  reservationType!: ReservationType;
 }

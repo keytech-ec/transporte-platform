@@ -4,7 +4,7 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 
 @Injectable()
 export class ServicesService {
-  create(createServiceDto: CreateServiceDto) {
+  create(_createServiceDto: CreateServiceDto) {
     // TODO: Implement create logic
     return { message: 'Create service - to be implemented' };
   }
@@ -19,7 +19,7 @@ export class ServicesService {
     return { message: 'Find one service - to be implemented', id };
   }
 
-  update(id: string, updateServiceDto: UpdateServiceDto) {
+  update(id: string, _updateServiceDto: UpdateServiceDto) {
     // TODO: Implement update logic
     return { message: 'Update service - to be implemented', id };
   }

@@ -4,19 +4,19 @@ import { IsString, IsEmail, IsOptional, IsNumber, Min, Max } from 'class-validat
 export class CreateProviderDto {
   @ApiProperty({ example: '0190123456001' })
   @IsString()
-  ruc: string;
+  ruc!: string;
 
   @ApiProperty({ example: 'Cotratudossa S.A.' })
   @IsString()
-  businessName: string;
+  businessName!: string;
 
   @ApiProperty({ example: 'contacto@cotratudossa.com' })
   @IsEmail()
-  email: string;
+  email!: string;
 
   @ApiProperty({ example: '+593 7 1234567' })
   @IsString()
-  phone: string;
+  phone!: string;
 
   @ApiProperty({ example: 5.0, required: false })
   @IsOptional()

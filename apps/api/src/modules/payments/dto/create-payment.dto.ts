@@ -8,7 +8,7 @@ export class CreatePaymentLinkDto {
     description: 'ID de la reserva',
   })
   @IsUUID()
-  reservationId: string;
+  reservationId!: string;
 
   @ApiProperty({
     enum: PaymentGateway,
@@ -16,6 +16,6 @@ export class CreatePaymentLinkDto {
     description: 'Gateway de pago a utilizar',
   })
   @IsEnum(PaymentGateway)
-  gateway: PaymentGateway;
+  gateway!: PaymentGateway;
 }
 

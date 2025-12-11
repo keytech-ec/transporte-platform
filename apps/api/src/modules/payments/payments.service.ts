@@ -242,7 +242,7 @@ export class PaymentsService {
    * This is called by webhook handlers
    */
   async updateTransactionFromWebhook(
-    gatewayTransactionId: string,
+    _gatewayTransactionId: string,
     status: string,
     webhookPayload: any,
   ) {

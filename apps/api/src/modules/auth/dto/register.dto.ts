@@ -5,12 +5,12 @@ import { UserRole } from '@transporte-platform/database';
 export class RegisterDto {
   @ApiProperty({ example: 'admin@platform.com' })
   @IsEmail()
-  email: string;
+  email!: string;
 
   @ApiProperty({ example: 'Test123!' })
   @IsString()
   @MinLength(6)
-  password: string;
+  password!: string;
 
   @ApiPropertyOptional({ example: '0190123456001', description: 'Provider ID (null for platform admin)' })
   @IsOptional()

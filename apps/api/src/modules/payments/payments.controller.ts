@@ -48,7 +48,7 @@ export class PaymentsController {
     @Headers('x-deuna-signature') signature?: string,
   ) {
     try {
-      const result = await this.deunaWebhook.handleWebhook(payload, signature);
+      await this.deunaWebhook.handleWebhook(payload, signature);
       return { success: true, message: 'Webhook processed successfully' };
     } catch (error) {
       console.error('DeUNA webhook error:', error);
@@ -69,7 +69,7 @@ export class PaymentsController {
     @Headers('x-payphone-signature') signature?: string,
   ) {
     try {
-      const result = await this.payphoneWebhook.handleWebhook(payload, signature);
+      await this.payphoneWebhook.handleWebhook(payload, signature);
       return { success: true, message: 'Webhook processed successfully' };
     } catch (error) {
       console.error('Payphone webhook error:', error);

@@ -34,3 +34,4 @@ export interface IPaymentGateway {
   validateWebhookSignature(payload: any, signature: string): boolean;
 }
 
+
