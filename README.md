@@ -672,16 +672,295 @@ Los asientos se generan automáticamente para cada viaje según el vehículo asi
 - `bcrypt` - Para hashear contraseñas de usuarios (versión 5.1.1)
 - `@types/bcrypt` - Tipos TypeScript para bcrypt (dev dependency)
 
+## Frontend Web (apps/web)
+
+La aplicación web pública está construida con Next.js 14 y proporciona la interfaz para que los usuarios busquen y reserven viajes.
+
+### Stack Tecnológico
+
+- **Next.js 14** con App Router
+- **TypeScript** (strict mode)
+- **Tailwind CSS** para estilos
+- **shadcn/ui** para componentes UI
+- **React Query** (@tanstack/react-query) para data fetching
+- **Zustand** para estado global
+- **React Hook Form** + **Zod** para formularios y validación
+- **date-fns** para manejo de fechas
+- **qrcode.react** para códigos QR
+
+### Estructura
+
+```
+apps/web/
+├── src/
+│   ├── app/                    # App Router pages
+│   │   ├── layout.tsx          # Layout principal con Providers
+│   │   ├── page.tsx            # Landing page
+│   │   ├── buscar/             # Búsqueda de viajes
+│   │   │   └── page.tsx
+│   │   ├── reservar/           # Selección de asientos y checkout
+│   │   │   └── [tripId]/
+│   │   │       ├── page.tsx    # Selección de asientos
+│   │   │       └── checkout/
+│   │   │           └── page.tsx # Checkout con información de pasajeros
+│   │   ├── confirmacion/        # Confirmación con QR
+│   │   │   └── [reference]/
+│   │   │       └── page.tsx
+│   │   └── mis-reservas/       # Consultar reservas por referencia
+│   │       └── page.tsx
+│   ├── components/
+│   │   ├── ui/                 # Componentes shadcn/ui
+│   │   │   ├── button.tsx
+│   │   │   ├── input.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── dialog.tsx
+│   │   │   ├── select.tsx
+│   │   │   ├── calendar.tsx
+│   │   │   ├── form.tsx
+│   │   │   ├── toast.tsx
+│   │   │   ├── skeleton.tsx
+│   │   │   ├── popover.tsx
+│   │   │   └── label.tsx
+│   │   └── providers.tsx       # Providers (React Query)
+│   ├── lib/
+│   │   ├── api.ts              # Cliente API con métodos para reservas y pagos
+│   │   ├── utils.ts            # Utilidades (formateo de moneda, fechas)
+│   │   └── validations.ts      # Esquemas Zod para validación
+│   ├── hooks/
+│   │   └── use-toast.ts        # Hook para notificaciones toast
+│   └── stores/
+│       └── booking-store.ts    # Store Zustand para estado de reserva
+├── public/                      # Archivos estáticos
+├── tailwind.config.ts          # Configuración de Tailwind con colores personalizados
+├── next.config.js              # Configuración de Next.js
+├── components.json             # Configuración de shadcn/ui
+└── package.json
+```
+
+### Configuración
+
+La aplicación web requiere un archivo `.env.local` en `apps/web/` con:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
+```
+
+### Scripts
+
+```bash
+# Desarrollo
+pnpm --filter @transporte-platform/web dev
+# O desde apps/web:
+pnpm dev
+
+# Build
+pnpm --filter @transporte-platform/web build
+
+# Producción
+pnpm --filter @transporte-platform/web start
+
+# Linting
+pnpm --filter @transporte-platform/web lint
+
+# Type checking
+pnpm --filter @transporte-platform/web type-check
+```
+
+### Páginas Disponibles
+
+#### `/` - Landing Page
+Página de inicio con:
+- Hero section con CTA para buscar viajes
+- Sección de características (múltiples destinos, horarios flexibles, pago seguro)
+- CTA para consultar reservas existentes
+
+#### `/buscar` - Búsqueda de Viajes
+Formulario de búsqueda con:
+- Origen y destino (inputs de texto)
+- Fecha (calendario con validación de fechas futuras)
+- Número de pasajeros (input numérico)
+- Lista de viajes disponibles con:
+  - Ruta (origen → destino)
+  - Fecha y hora de salida
+  - Asientos disponibles
+  - Precio por asiento
+  - Botón para seleccionar
+
+#### `/reservar/[tripId]` - Selección de Asientos
+Visualización interactiva del mapa de asientos:
+- Grid de asientos con estados visuales:
+  - Verde: Disponible
+  - Azul: Seleccionado
+  - Amarillo: Bloqueado
+  - Rojo: Ocupado
+- Leyenda de colores
+- Contador de asientos seleccionados
+- Botón para continuar al checkout
+
+#### `/reservar/[tripId]/checkout` - Checkout
+Formulario completo de información:
+- **Información de contacto:**
+  - Tipo y número de documento
+  - Nombre y apellido
+  - Email y teléfono
+- **Información de pasajeros** (uno por asiento seleccionado):
+  - Tipo y número de documento
+  - Nombre y apellido
+  - Tipo de pasajero (Adulto, Niño, Adulto mayor)
+- Validación completa con Zod
+- Botón para continuar al pago
+
+#### `/confirmacion/[reference]` - Confirmación
+Página de confirmación con:
+- Mensaje de éxito
+- Número de referencia de reserva
+- Código QR con la referencia
+- Detalles del viaje:
+  - Ruta
+  - Fecha y hora
+  - Número de pasajeros
+  - Total pagado
+- Lista de pasajeros con información completa
+- Botones para descargar comprobante y volver al inicio
+
+#### `/mis-reservas` - Consultar Reservas
+Búsqueda de reservas por número de referencia:
+- Input para ingresar referencia
+- Visualización de detalles de la reserva encontrada
+- Botón para ver detalles completos (redirige a `/confirmacion/[reference]`)
+
+### Componentes UI
+
+La aplicación usa **shadcn/ui** con los siguientes componentes instalados:
+
+- `button` - Botones con variantes (default, outline, ghost, etc.)
+- `input` - Inputs de formulario
+- `card` - Tarjetas con header, content, footer
+- `dialog` - Modales
+- `select` - Selectores desplegables
+- `calendar` - Calendario para selección de fechas
+- `form` - Formularios integrados con React Hook Form
+- `toast` - Sistema de notificaciones
+- `skeleton` - Estados de carga
+- `popover` - Popovers
+- `label` - Labels para formularios
+
+### Estado Global (Zustand)
+
+Se usa Zustand para manejar el estado de la reserva en curso:
+
+```typescript
+import { useBookingStore } from '@/stores/booking-store';
+
+const {
+  selectedTrip,      // ID del viaje seleccionado
+  selectedSeats,     // Array de IDs de asientos seleccionados
+  lockId,            // ID del bloqueo de asientos
+  customer,          // Información del cliente
+  passengers,        // Array de información de pasajeros
+  reservationType,   // ONE_WAY | ROUND_TRIP
+  setSelectedTrip,
+  setSelectedSeats,
+  setLockId,
+  setCustomer,
+  setPassengers,
+  setReservationType,
+  clear,             // Limpiar todo el estado
+} = useBookingStore();
+```
+
+### API Client
+
+El cliente API (`src/lib/api.ts`) proporciona métodos para:
+
+#### Reservations API
+- `searchTrips(params)` - Buscar viajes disponibles
+- `getTripSeats(tripId)` - Obtener mapa de asientos de un viaje
+- `lockSeats(data)` - Bloquear asientos temporalmente
+- `createReservation(data)` - Crear reserva
+- `getByReference(reference)` - Obtener reserva por referencia
+- `confirm(id)` - Confirmar reserva
+- `cancel(id)` - Cancelar reserva
+
+#### Payments API
+- `createPaymentLink(data)` - Crear link de pago
+- `getByReservation(reservationId)` - Obtener estado de pago por reserva
+- `getTransaction(id)` - Obtener transacción por ID
+
+### Validación
+
+Los esquemas de validación están en `src/lib/validations.ts` usando Zod:
+
+- `searchTripsSchema` - Validación de búsqueda de viajes
+- `customerSchema` - Validación de información del cliente
+- `passengerSchema` - Validación de información de pasajeros
+- `reservationSchema` - Validación de creación de reserva
+- `bookingReferenceSchema` - Validación de búsqueda por referencia
+
+### Estilos
+
+- **Tailwind CSS** con configuración personalizada
+- **Colores de transporte**: Paleta azul/verde profesional definida en `tailwind.config.ts`:
+  - `transporte-blue-*` (50-900)
+  - `transporte-green-*` (50-900)
+- **Variables CSS** para temas (light/dark) en `globals.css`
+- **Fuente**: Inter de Google Fonts
+
+### Flujo de Reserva
+
+1. **Búsqueda** (`/buscar`): Usuario busca viajes disponibles
+2. **Selección de asientos** (`/reservar/[tripId]`): Usuario selecciona asientos
+3. **Checkout** (`/reservar/[tripId]/checkout`): Usuario ingresa información
+4. **Pago**: Redirección a gateway de pago (DeUNA o Payphone)
+5. **Confirmación** (`/confirmacion/[reference]`): Usuario ve confirmación con QR
+
+### Desarrollo
+
+1. Asegúrate de que la API esté corriendo en `http://localhost:3001`
+2. Crea el archivo `.env.local` en `apps/web/` con `NEXT_PUBLIC_API_URL`
+3. Ejecuta `pnpm --filter @transporte-platform/web dev`
+4. Abre `http://localhost:3000`
+
+### Características Implementadas
+
+- ✅ Landing page con diseño moderno
+- ✅ Búsqueda de viajes con filtros
+- ✅ Visualización interactiva de mapa de asientos
+- ✅ Sistema de bloqueo de asientos (15 minutos)
+- ✅ Formulario completo de checkout
+- ✅ Integración con gateways de pago
+- ✅ Página de confirmación con código QR
+- ✅ Consulta de reservas por referencia
+- ✅ Validación completa de formularios
+- ✅ Manejo de estados de carga
+- ✅ Notificaciones toast
+- ✅ Diseño responsive
+- ✅ TypeScript strict mode
+
+### Próximos Pasos
+
+- [ ] Agregar manejo de errores más robusto con mensajes específicos
+- [ ] Implementar autenticación de usuarios (login/registro)
+- [ ] Agregar tests (unitarios y e2e)
+- [ ] Mejorar accesibilidad (ARIA labels, keyboard navigation)
+- [ ] Optimizar imágenes y assets
+- [ ] Agregar PWA support
+- [ ] Implementar internacionalización (i18n)
+- [ ] Agregar modo oscuro
+- [ ] Implementar historial de reservas para usuarios autenticados
+
 ## Tecnologías
 
 - **Monorepo**: pnpm workspaces + Turborepo
 - **Backend**: NestJS 10
-- **Frontend**: Next.js 14 (App Router)
+- **Frontend Web**: Next.js 14 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
 - **Database**: PostgreSQL 15 + Prisma ORM
 - **Cache**: Redis 7
 - **TypeScript**: Strict mode
 - **Autenticación**: JWT (Passport.js) + bcrypt para hashing de passwords
-- **Validación**: class-validator + class-transformer
+- **Validación**: class-validator + class-transformer (backend), Zod (frontend)
 - **Documentación API**: Swagger/OpenAPI
 - **Scheduling**: @nestjs/schedule para tareas programadas (liberación de asientos bloqueados)
+- **State Management**: Zustand (frontend)
+- **Data Fetching**: React Query / TanStack Query (frontend)
 
