@@ -129,7 +129,11 @@ apps/api/
 │   │   ├── vehicles/          # CRUD vehículos
 │   │   ├── services/          # CRUD servicios/rutas
 │   │   ├── trips/             # CRUD viajes programados
-│   │   ├── reservations/      # Reservas (crear, confirmar, cancelar)
+│   │   ├── reservations/      # Reservas (completamente implementado)
+│   │   │   ├── dto/          # DTOs para búsqueda, bloqueo, creación
+│   │   │   ├── exceptions/   # Excepciones personalizadas de negocio
+│   │   │   ├── utils/        # Utilidades (generación de booking reference)
+│   │   │   └── seat-lock-scheduler.service.ts  # Scheduler para liberar asientos
 │   │   ├── payments/          # Integración con gateways de pago
 │   │   └── customers/         # CRUD clientes
 │   └── prisma/                # Servicio de Prisma
@@ -157,6 +161,8 @@ apps/api/
 - ✅ **Sistema de roles** (SUPER_ADMIN, PROVIDER_ADMIN, OPERATOR, VIEWER)
 - ✅ **Guards y decoradores** para protección de rutas y autorización
 - ✅ **8 módulos base** con estructura completa (controller, service, DTOs)
+- ✅ **Módulo de Reservas** completamente funcional con todas las operaciones críticas
+- ✅ **Scheduler de asientos** para liberar automáticamente bloqueos expirados (cada minuto)
 
 ### Configuración
 
@@ -227,12 +233,36 @@ CORS_ORIGIN="*"
 - `PUT /api/trips/:id` - Actualizar viaje
 - `DELETE /api/trips/:id` - Eliminar viaje
 
-#### 6. Reservations (`/api/reservations`)
-- `GET /api/reservations` - Listar todas las reservas
-- `GET /api/reservations/:id` - Obtener reserva por ID
+#### 6. Reservations (`/api/reservations`) ✅ **COMPLETAMENTE IMPLEMENTADO**
+- `GET /api/reservations/trips/search` - Buscar viajes disponibles
+  - Query params: `origin`, `destination`, `date` (YYYY-MM-DD), `passengers`
+  - Retorna viajes con asientos disponibles >= passengers
+  - Incluye precio, horario, vehículo, amenities
+- `GET /api/reservations/trips/:tripId/seats` - Obtener mapa de asientos de un viaje
+  - Retorna estado de cada asiento (available/locked/confirmed/reserved/blocked)
+  - Incluye layout para renderizar en frontend
+- `POST /api/reservations/lock-seats` - Bloquear asientos para checkout
+  - Body: `{ tripId, seatIds: string[] }`
+  - Cambia status a LOCKED con expiración de 15 minutos
+  - Retorna `lockId` para continuar checkout
 - `POST /api/reservations` - Crear reserva
-- `PUT /api/reservations/:id/confirm` - Confirmar reserva
-- `PUT /api/reservations/:id/cancel` - Cancelar reserva
+  - Body: `{ tripId, lockId, seatIds, customer, passengers, reservationType }`
+  - Valida que asientos sigan bloqueados por lockId
+  - Crea Customer si no existe
+  - Crea Reservation + Passengers + ReservationSeats
+  - Genera `bookingReference` único (ej: CUE8X9Z2P)
+  - Calcula subtotal, commission, total
+- `PATCH /api/reservations/:id/confirm` - Confirmar reserva (después del pago)
+  - Cambia status a CONFIRMED
+  - Cambia TripSeat.status a CONFIRMED
+- `PATCH /api/reservations/:id/cancel` - Cancelar reserva
+  - Solo si status es PENDING o CONFIRMED
+  - Libera asientos (status = AVAILABLE)
+  - Marca para reembolso si ya pagó
+- `GET /api/reservations/by-reference/:reference` - Obtener reserva por bookingReference
+  - Retorna toda la información de la reserva para el cliente
+- `GET /api/reservations` - Listar todas las reservas (legacy)
+- `GET /api/reservations/:id` - Obtener reserva por ID (legacy)
 
 #### 7. Payments (`/api/payments`)
 - `POST /api/payments/process` - Procesar pago
@@ -378,6 +408,17 @@ export class ProvidersController {
   - Login, registro, refresh token, obtener usuario actual
   - Guards, decoradores y estrategias JWT/Local
   - Validación de roles y protección de rutas
+
+- ✅ **Módulo de Reservas**: Completamente implementado
+  - Búsqueda de viajes disponibles con filtros
+  - Visualización de mapa de asientos con estados
+  - Sistema de bloqueo de asientos (15 minutos)
+  - Creación de reservas con validaciones completas
+  - Confirmación y cancelación de reservas
+  - Búsqueda por booking reference
+  - Scheduler automático para liberar asientos bloqueados expirados
+  - Transacciones de Prisma para operaciones críticas
+  - Manejo de errores específicos (SeatNotAvailable, ReservationExpired, etc.)
   
 - ⏳ **Otros módulos**: Estructura base completa (controllers, services, DTOs), pero la lógica de negocio está marcada con `TODO` y debe ser implementada. Cada servicio tiene métodos placeholder que deben ser completados usando `PrismaService`.
 
@@ -385,11 +426,12 @@ export class ProvidersController {
 
 1. ✅ ~~Implementar lógica de autenticación en `AuthService` (login, registro, JWT)~~ **COMPLETADO**
 2. ✅ ~~Implementar guards de autorización por roles~~ **COMPLETADO**
-3. Implementar CRUD completo en cada módulo usando `PrismaService`
-4. Agregar validaciones de negocio y reglas de autorización específicas por módulo
-5. Agregar tests unitarios y e2e
-6. Implementar integración con gateways de pago (Deuna, PayPhone)
-7. Agregar filtrado, paginación y ordenamiento en endpoints de listado
+3. ✅ ~~Implementar módulo de reservas completo (búsqueda, bloqueo, creación, confirmación, cancelación)~~ **COMPLETADO**
+4. Implementar CRUD completo en otros módulos usando `PrismaService`
+5. Agregar validaciones de negocio y reglas de autorización específicas por módulo
+6. Agregar tests unitarios y e2e
+7. Implementar integración con gateways de pago (Deuna, PayPhone)
+8. Agregar filtrado, paginación y ordenamiento en endpoints de listado
 
 ## Base de Datos
 
@@ -542,7 +584,9 @@ Los asientos se generan automáticamente para cada viaje según el vehículo asi
 - **Contraseña para todos**: `Test123!`
 
 ### Funciones Helper
-- `generateBookingReference()` - Genera referencias de reserva únicas (8 caracteres alfanuméricos)
+- `generateBookingReference()` - Genera referencias de reserva únicas
+  - Formato: 3 letras + 5 alfanuméricos (ej: CUE8X9Z2P)
+  - Implementado en `apps/api/src/modules/reservations/utils/booking-reference.util.ts`
 - `generateSeats()` - Genera asientos automáticamente según el layout 2-2 del vehículo
 
 ### Dependencias del Seed
@@ -560,4 +604,5 @@ Los asientos se generan automáticamente para cada viaje según el vehículo asi
 - **Autenticación**: JWT (Passport.js) + bcrypt para hashing de passwords
 - **Validación**: class-validator + class-transformer
 - **Documentación API**: Swagger/OpenAPI
+- **Scheduling**: @nestjs/schedule para tareas programadas (liberación de asientos bloqueados)
 
