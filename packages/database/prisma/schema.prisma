@@ -1,5 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// ============================================
+// SCHEMA: Multi-tenant Transport Platform
+// ============================================
 
 generator client {
   provider = "prisma-client-js"
@@ -10,5 +11,436 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Models will be added here
+// ============================================
+// 1. PROVIDER - Empresas de transporte (multi-tenant)
+// ============================================
 
+model Provider {
+  id              String   @id @default(uuid())
+  ruc             String   @unique @db.VarChar(13)
+  businessName    String   @db.VarChar(200)
+  email           String   @unique
+  phone           String   @db.VarChar(20)
+  commissionRate  Decimal  @default(5.0) @db.Decimal(5,2)
+  status          ProviderStatus @default(PENDING)
+  bankAccount     String?  @db.VarChar(50)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relaciones
+  vehicles        Vehicle[]
+  services        Service[]
+  users           User[]
+  transactions    Transaction[]
+
+  @@map("providers")
+}
+
+enum ProviderStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+// ============================================
+// 2. VEHICLE - Vehículos de cada proveedor
+// ============================================
+
+model Vehicle {
+  id              String   @id @default(uuid())
+  providerId      String
+  
+  plate           String   @unique @db.VarChar(10)
+  brand           String   @db.VarChar(50)
+  model           String   @db.VarChar(50)
+  year            Int
+  totalSeats      Int
+  seatLayout      Json?    // Configuración del bus {"rows": 10, "seatsPerRow": 4, "layout": "2-2"}
+  type            VehicleType
+  amenities       Json?    // {"wifi": true, "ac": true, "bathroom": true, "tv": true}
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relaciones
+  provider        Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  scheduledTrips  ScheduledTrip[]
+  seats           Seat[]
+
+  @@index([providerId])
+  @@map("vehicles")
+}
+
+enum VehicleType {
+  VAN
+  MINIBUS
+  BUS
+  DOUBLE_DECKER
+  SUV
+}
+
+// ============================================
+// 3. SEAT - Asientos de cada vehículo
+// ============================================
+
+model Seat {
+  id              String   @id @default(uuid())
+  vehicleId       String
+  
+  seatNumber      String   @db.VarChar(10) // "1A", "2B", etc.
+  row             Int
+  column          Int
+  position        SeatPosition
+  tier            SeatTier @default(STANDARD)
+  
+  vehicle         Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  tripSeats       TripSeat[]
+  reservationSeats ReservationSeat[]
+
+  @@unique([vehicleId, seatNumber])
+  @@index([vehicleId])
+  @@map("seats")
+}
+
+enum SeatPosition {
+  WINDOW
+  AISLE
+  MIDDLE
+}
+
+enum SeatTier {
+  STANDARD
+  PREMIUM
+  VIP
+  LOWER_DECK
+  UPPER_DECK
+}
+
+// ============================================
+// 4. SERVICE_TYPE - Tipos de servicio
+// ============================================
+
+model ServiceType {
+  id              String   @id @default(uuid())
+  name            String   @unique @db.VarChar(50)
+  requiresQuote   Boolean  @default(false)
+  
+  services        Service[]
+
+  @@map("service_types")
+}
+
+// ============================================
+// 5. SERVICE - Rutas/Tours de cada proveedor
+// ============================================
+
+model Service {
+  id              String   @id @default(uuid())
+  providerId      String
+  serviceTypeId   String
+  
+  origin          String   @db.VarChar(100)
+  destination     String   @db.VarChar(100)
+  name            String   @db.VarChar(200)
+  basePrice       Decimal? @db.Decimal(10,2)
+  duration        Int?     // Duración en minutos
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  provider        Provider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  serviceType     ServiceType @relation(fields: [serviceTypeId], references: [id])
+  scheduledTrips  ScheduledTrip[]
+
+  @@index([providerId])
+  @@index([origin, destination])
+  @@map("services")
+}
+
+// ============================================
+// 6. SCHEDULED_TRIP - Viajes programados
+// ============================================
+
+model ScheduledTrip {
+  id              String   @id @default(uuid())
+  serviceId       String
+  vehicleId       String
+  
+  departureDate   DateTime @db.Date
+  departureTime   DateTime @db.Time
+  totalSeats      Int
+  availableSeats  Int
+  pricePerSeat    Decimal  @db.Decimal(10,2)
+  bookingMode     BookingMode @default(PER_SEAT)
+  status          TripStatus @default(SCHEDULED)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  service         Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  vehicle         Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  reservations    Reservation[]
+  tripSeats       TripSeat[]
+
+  @@index([serviceId, departureDate])
+  @@index([vehicleId, departureDate])
+  @@index([departureDate, status])
+  @@map("scheduled_trips")
+}
+
+enum BookingMode {
+  PER_SEAT
+  FULL_VEHICLE
+  BOTH
+}
+
+enum TripStatus {
+  SCHEDULED
+  BOARDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================
+// 7. TRIP_SEAT - Estado de cada asiento por viaje
+// ============================================
+
+model TripSeat {
+  id              String   @id @default(uuid())
+  tripId          String
+  seatId          String
+  
+  status          SeatStatus @default(AVAILABLE)
+  lockedUntil     DateTime?
+  
+  trip            ScheduledTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  seat            Seat @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  reservationSeat ReservationSeat?
+
+  @@unique([tripId, seatId])
+  @@index([tripId, status])
+  @@map("trip_seats")
+}
+
+enum SeatStatus {
+  AVAILABLE
+  LOCKED
+  RESERVED
+  CONFIRMED
+  BLOCKED
+}
+
+// ============================================
+// 8. CUSTOMER - Clientes
+// ============================================
+
+model Customer {
+  id              String   @id @default(uuid())
+  
+  documentType    DocumentType @default(CEDULA)
+  documentNumber  String   @db.VarChar(20)
+  firstName       String   @db.VarChar(100)
+  lastName        String   @db.VarChar(100)
+  email           String?  @db.VarChar(100)
+  phone           String   @db.VarChar(20)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  reservations    Reservation[]
+
+  @@unique([documentType, documentNumber])
+  @@index([email])
+  @@index([phone])
+  @@map("customers")
+}
+
+enum DocumentType {
+  CEDULA
+  RUC
+  PASSPORT
+}
+
+// ============================================
+// 9. RESERVATION - Reservas
+// ============================================
+
+model Reservation {
+  id              String   @id @default(uuid())
+  tripId          String
+  customerId      String
+  
+  bookingReference String  @unique @db.VarChar(10)
+  reservationType ReservationType
+  numPassengers   Int
+  subtotal        Decimal  @db.Decimal(10,2)
+  commission      Decimal  @db.Decimal(10,2)
+  total           Decimal  @db.Decimal(10,2)
+  status          ReservationStatus @default(PENDING)
+  channel         BookingChannel @default(WEB)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  trip            ScheduledTrip @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  passengers      Passenger[]
+  reservationSeats ReservationSeat[]
+  transactions    Transaction[]
+
+  @@index([tripId])
+  @@index([customerId])
+  @@index([status, createdAt])
+  @@index([bookingReference])
+  @@map("reservations")
+}
+
+enum ReservationType {
+  PER_SEAT
+  FULL_VEHICLE
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  NO_SHOW
+}
+
+enum BookingChannel {
+  WEB
+  TELEGRAM
+  WHATSAPP
+  PHONE
+  DASHBOARD
+}
+
+// ============================================
+// 10. PASSENGER - Pasajeros de cada reserva
+// ============================================
+
+model Passenger {
+  id              String   @id @default(uuid())
+  reservationId   String
+  
+  documentNumber  String   @db.VarChar(20)
+  firstName       String   @db.VarChar(100)
+  lastName        String   @db.VarChar(100)
+  passengerType   PassengerType @default(ADULT)
+  
+  reservation     Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  reservationSeat ReservationSeat?
+
+  @@index([reservationId])
+  @@map("passengers")
+}
+
+enum PassengerType {
+  ADULT
+  CHILD
+  INFANT
+  SENIOR
+}
+
+// ============================================
+// 11. RESERVATION_SEAT - Asientos asignados a reserva
+// ============================================
+
+model ReservationSeat {
+  id              String   @id @default(uuid())
+  reservationId   String
+  tripSeatId      String   @unique
+  passengerId     String?  @unique
+  seatId          String
+  
+  reservation     Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  tripSeat        TripSeat @relation(fields: [tripSeatId], references: [id], onDelete: Restrict)
+  passenger       Passenger? @relation(fields: [passengerId], references: [id], onDelete: SetNull)
+  seat            Seat @relation(fields: [seatId], references: [id], onDelete: Restrict)
+
+  @@index([reservationId])
+  @@map("reservation_seats")
+}
+
+// ============================================
+// 12. TRANSACTION - Pagos
+// ============================================
+
+model Transaction {
+  id              String   @id @default(uuid())
+  reservationId   String
+  providerId      String
+  
+  amount          Decimal  @db.Decimal(10,2)
+  commission      Decimal  @db.Decimal(10,2)
+  providerAmount  Decimal  @db.Decimal(10,2)
+  gateway         PaymentGateway
+  status          TransactionStatus @default(PENDING)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  reservation     Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  provider        Provider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@index([reservationId])
+  @@index([providerId, status])
+  @@map("transactions")
+}
+
+enum PaymentGateway {
+  DEUNA
+  PAYPHONE
+  CASH
+  TRANSFER
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+// ============================================
+// 13. USER - Usuarios del dashboard
+// ============================================
+
+model User {
+  id              String   @id @default(uuid())
+  providerId      String?  // Null = admin de plataforma
+  
+  email           String   @unique
+  passwordHash    String
+  role            UserRole @default(OPERATOR)
+  status          UserStatus @default(ACTIVE)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  provider        Provider? @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  PROVIDER_ADMIN
+  OPERATOR
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
