@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { reservationsApi, paymentsApi } from '@/lib/api';
 import { useBookingStore } from '@/stores/booking-store';
 import {
@@ -30,11 +30,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format, parseISO } from 'date-fns';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { selectedTrip, selectedSeats, lockId, setCustomer, setPassengers } =
+  const { selectedTrip, selectedSeats, lockId, passengerCount, setCustomer, setPassengers } =
     useBookingStore();
+
+  const { data: tripData, isLoading: tripLoading } = useQuery({
+    queryKey: ['trip', selectedTrip],
+    queryFn: () => reservationsApi.getTripSeats(selectedTrip!),
+    enabled: !!selectedTrip,
+  });
 
   const form = useForm<ReservationInput>({
     resolver: zodResolver(reservationSchema),
@@ -87,9 +95,41 @@ export default function CheckoutPage() {
     createReservationMutation.mutate(data);
   };
 
+  if (tripLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  if (!tripData || !selectedTrip) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Card>
+          <CardContent className="pt-6">
+            <p>Error al cargar la información del viaje</p>
+            <Link href="/buscar">
+              <Button variant="outline" className="mt-4">
+                Volver a buscar
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const trip = tripData as any;
+  const selectedSeatObjects = trip.seats?.filter((seat: any) =>
+    selectedSeats.includes(seat.id)
+  ) || [];
+  const pricePerSeat = trip.pricePerSeat || 0;
+  const total = selectedSeats.length * pricePerSeat;
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <Link href={`/reservar/${selectedTrip}`}>
           <Button variant="ghost" className="mb-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -97,7 +137,10 @@ export default function CheckoutPage() {
           </Button>
         </Link>
 
-        <Card>
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Left side: Forms */}
+          <div className="md:col-span-2">
+            <Card>
           <CardHeader>
             <CardTitle>Información de contacto y pasajeros</CardTitle>
           </CardHeader>
@@ -331,6 +374,94 @@ export default function CheckoutPage() {
             </Form>
           </CardContent>
         </Card>
+          </div>
+
+          {/* Right side: Purchase Summary */}
+          <div className="md:col-span-1">
+            <Card className="sticky top-4">
+              <CardHeader>
+                <CardTitle>Resumen de compra</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Trip Details */}
+                <div>
+                  <h3 className="font-semibold mb-2">Detalles del viaje</h3>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Ruta</p>
+                      <p className="font-medium">{trip.origin} → {trip.destination}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Fecha y hora</p>
+                      <p className="font-medium">
+                        {(() => {
+                          try {
+                            const dateStr = typeof trip.departureDate === 'string'
+                              ? trip.departureDate.split('T')[0]
+                              : trip.departureDate;
+                            const timeStr = typeof trip.departureTime === 'string'
+                              ? trip.departureTime.split('T')[1] || trip.departureTime
+                              : trip.departureTime;
+                            return format(parseISO(`${dateStr}T${timeStr}`), 'PPP p');
+                          } catch (e) {
+                            return 'Fecha no disponible';
+                          }
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Selected Seats */}
+                <div>
+                  <h3 className="font-semibold mb-2">Asientos seleccionados</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedSeatObjects.map((seat: any) => (
+                      <div
+                        key={seat.id}
+                        className="px-3 py-1 bg-transporte-blue-100 text-transporte-blue-700 rounded-md text-sm font-medium"
+                      >
+                        {seat.seatNumber}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Price Breakdown */}
+                <div className="border-t pt-4 space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Precio por asiento:</span>
+                    <span className="font-medium">${pricePerSeat.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Número de asientos:</span>
+                    <span className="font-medium">{selectedSeats.length}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Pasajeros:</span>
+                    <span className="font-medium">{passengerCount}</span>
+                  </div>
+                  <div className="border-t pt-3 flex justify-between">
+                    <span className="font-semibold">Total a pagar:</span>
+                    <span className="text-2xl font-bold text-transporte-blue-600">
+                      ${total.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Security Note */}
+                <div className="bg-gray-50 p-3 rounded-lg text-xs text-muted-foreground">
+                  <p>
+                    ✓ Pago seguro y encriptado
+                  </p>
+                  <p className="mt-1">
+                    ✓ Tus asientos están reservados por 15 minutos
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

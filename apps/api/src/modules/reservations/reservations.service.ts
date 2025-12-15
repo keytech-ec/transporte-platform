@@ -109,6 +109,7 @@ export class ReservationsService {
     const trip = await this.prisma.scheduledTrip.findUnique({
       where: { id: tripId },
       include: {
+        service: true,
         vehicle: {
           include: {
             seats: {
@@ -168,6 +169,11 @@ export class ReservationsService {
     return {
       tripId: trip.id,
       vehicleId: trip.vehicle.id,
+      pricePerSeat: trip.pricePerSeat.toNumber(),
+      origin: trip.service.origin,
+      destination: trip.service.destination,
+      departureDate: trip.departureDate,
+      departureTime: trip.departureTime,
       seatLayout: trip.vehicle.seatLayout,
       seats,
     };

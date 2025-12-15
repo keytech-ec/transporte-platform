@@ -158,6 +158,29 @@ export default function ReservarPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Price Summary Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Resumen de precio</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Precio por asiento:</span>
+              <span className="font-medium">${((trip as any).pricePerSeat || 0).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Asientos seleccionados:</span>
+              <span className="font-medium">{selectedSeats.length}</span>
+            </div>
+            <div className="border-t pt-3 flex justify-between">
+              <span className="font-semibold">Total:</span>
+              <span className="text-2xl font-bold text-transporte-blue-600">
+                ${(selectedSeats.length * ((trip as any).pricePerSeat || 0)).toFixed(2)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
