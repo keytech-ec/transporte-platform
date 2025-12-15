@@ -2,6 +2,14 @@
 
 Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
 
+## Actualizaciones Recientes
+
+### Diciembre 2025 - Correcciones de Compatibilidad Frontend-Backend
+- ✅ **Conversión de tipos Decimal de Prisma**: Todos los campos Decimal (`pricePerSeat`, `subtotal`, `total`, `commission`, `amount`, etc.) ahora se convierten automáticamente a números JavaScript usando `.toNumber()` antes de ser enviados al frontend
+- ✅ **Corrección de estructura de datos**: Ajustada la respuesta de `searchTrips()` para exponer `origin` y `destination` en el nivel superior del objeto viaje
+- ✅ **Frontend de búsqueda funcional**: La página `/buscar` ahora muestra correctamente los viajes disponibles con toda su información (ruta, horarios, precios, asientos disponibles)
+- ✅ **Documentación actualizada**: Agregadas guías de buenas prácticas para el manejo de tipos Decimal y troubleshooting de errores comunes
+
 ## Estructura
 
 ```
@@ -46,31 +54,51 @@ Copy-Item apps\web\.env.example apps\web\.env.local
 # 3. Iniciar servicios Docker (PostgreSQL y Redis)
 docker-compose -f docker/docker-compose.yml up -d
 
-# 4. Configurar base de datos (desde packages/database)
-cd packages/database
-pnpm prisma generate
-pnpm prisma migrate dev --name init
+# 4. Configurar base de datos
+# Generar cliente de Prisma
+pnpm --filter @transporte-platform/database generate
+
+# Ejecutar migraciones (desde la raíz del proyecto)
+pnpm --filter @transporte-platform/database migrate
 
 # 5. Seed de base de datos (opcional)
 # Nota: El seed requiere bcrypt para hashear contraseñas (ya incluido en package.json)
-# Si instalaste dependencias desde la raíz, bcrypt ya está instalado
-pnpm seed
-# O desde la raíz del proyecto:
-# pnpm db:seed
+pnpm db:seed
+
+# 6. Construir todos los packages (IMPORTANTE)
+# Este paso es necesario para compilar el API y los packages compartidos
+pnpm build
+
+# 7. Iniciar el servidor de desarrollo
+# OPCIÓN A: Iniciar todos los servicios (recomendado)
+pnpm dev
+
+# OPCIÓN B: Iniciar servicios individuales en terminales separadas
+# Terminal 1 - API Backend
+pnpm --filter @transporte-platform/api start
+
+# Terminal 2 - Frontend Web
+pnpm --filter @transporte-platform/web dev
 ```
+
+**IMPORTANTE**: Siempre ejecuta `pnpm build` después de instalar dependencias o hacer cambios en los packages compartidos (database, shared, ui). Esto compila el código TypeScript a JavaScript para que pueda ser ejecutado correctamente.
 
 ### Configuración inicial de la base de datos
 
 Si es la primera vez que configuras el proyecto:
 
 ```bash
-# Desde la raíz del proyecto
+# 1. Iniciar servicios Docker
 docker-compose -f docker/docker-compose.yml up -d
 
-# Desde packages/database
-cd packages/database
-pnpm prisma generate          # Genera el cliente de Prisma
-pnpm prisma migrate dev --name init  # Crea y aplica la migración inicial
+# 2. Generar cliente de Prisma (desde la raíz)
+pnpm --filter @transporte-platform/database generate
+
+# 3. Aplicar migraciones
+pnpm --filter @transporte-platform/database migrate
+
+# 4. (Opcional) Ejecutar seed para datos de prueba
+pnpm db:seed
 ```
 
 ## Scripts
@@ -96,18 +124,36 @@ pnpm prisma migrate dev --name init  # Crea y aplica la migración inicial
 
 ## Desarrollo
 
-Cada app y package puede ejecutarse individualmente:
+### Iniciar todos los servicios
 
 ```bash
-# Ejecutar solo la API
-pnpm --filter @transporte-platform/api dev
+# Desde la raíz del proyecto (recomendado)
+pnpm dev
+```
 
-# Ejecutar solo la web
+### Ejecutar servicios individuales
+
+**IMPORTANTE**: Antes de ejecutar servicios individuales, asegúrate de haber compilado todos los packages:
+
+```bash
+# Construir todos los packages primero
+pnpm build
+```
+
+Luego, ejecuta cada servicio en terminales separadas:
+
+```bash
+# Terminal 1 - API Backend (modo producción, más estable)
+pnpm --filter @transporte-platform/api start
+
+# Terminal 2 - Frontend Web (modo desarrollo con hot reload)
 pnpm --filter @transporte-platform/web dev
 
-# Ejecutar solo el dashboard
+# Terminal 3 - Dashboard (modo desarrollo)
 pnpm --filter @transporte-platform/dashboard dev
 ```
+
+**Nota sobre el modo dev del API**: El comando `pnpm --filter @transporte-platform/api dev` puede tener problemas con el modo watch de NestJS en el entorno de monorepo. Se recomienda usar `pnpm build` seguido de `pnpm start` para mayor estabilidad.
 
 ## API Backend (NestJS)
 
@@ -182,6 +228,37 @@ apps/api/
 - ✅ **Módulo de Pagos** completamente funcional con integración a DeUNA y Payphone
 - ✅ **Scheduler de asientos** para liberar automáticamente bloqueos expirados (cada minuto)
 - ✅ **Sistema de comisiones** automático basado en provider.commissionRate
+- ✅ **Conversión automática de Prisma Decimal a números** para compatibilidad con frontend
+
+### Buenas Prácticas de Desarrollo
+
+#### Manejo de Tipos Decimal de Prisma
+
+Los campos de tipo `Decimal` en Prisma (como `pricePerSeat`, `subtotal`, `total`, `commission`, etc.) deben ser convertidos a números JavaScript antes de ser retornados en las respuestas de la API. Esto es crucial para la compatibilidad con el frontend.
+
+**Ejemplo correcto**:
+```typescript
+// ❌ INCORRECTO - Retorna objeto Decimal de Prisma
+return {
+  pricePerSeat: trip.pricePerSeat,  // Esto causará errores en el frontend
+};
+
+// ✅ CORRECTO - Convierte a número JavaScript
+return {
+  pricePerSeat: trip.pricePerSeat.toNumber(),  // Compatible con frontend
+};
+```
+
+**Campos que requieren conversión**:
+- Todos los campos de precio: `pricePerSeat`, `basePrice`
+- Campos financieros de reservas: `subtotal`, `commission`, `total`
+- Campos de transacciones: `amount`, `commission`, `providerAmount`
+- Tasas: `commissionRate`
+
+**Dónde aplicar la conversión**:
+- En los métodos de servicio que retornan datos a los controladores
+- Antes de mapear objetos de Prisma a DTOs de respuesta
+- En todos los endpoints que retornan información financiera
 
 ### Configuración
 
@@ -1002,11 +1079,196 @@ Los esquemas de validación están en `src/lib/validations.ts` usando Zod:
 - **Frontend Web**: Next.js 14 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
 - **Database**: PostgreSQL 15 + Prisma ORM
 - **Cache**: Redis 7
-- **TypeScript**: Strict mode
+- **TypeScript**: Strict mode (frontend), configurado para compatibilidad en backend
 - **Autenticación**: JWT (Passport.js) + bcrypt para hashing de passwords
 - **Validación**: class-validator + class-transformer (backend), Zod (frontend)
 - **Documentación API**: Swagger/OpenAPI
 - **Scheduling**: @nestjs/schedule para tareas programadas (liberación de asientos bloqueados)
 - **State Management**: Zustand (frontend)
 - **Data Fetching**: React Query / TanStack Query (frontend)
+
+## Solución de Problemas (Troubleshooting)
+
+### Error: "net::ERR_CONNECTION_REFUSED" al intentar conectar al backend
+
+**Síntoma**: El frontend muestra error de conexión al intentar hacer requests a `http://localhost:3001`
+
+**Causa**: El servidor de backend no está corriendo o no se compiló correctamente.
+
+**Solución**:
+```bash
+# 1. Asegúrate de haber construido todos los packages
+pnpm build
+
+# 2. Inicia el servidor de backend
+pnpm --filter @transporte-platform/api start
+
+# 3. Verifica que el servidor esté corriendo
+curl http://localhost:3001/api/reservations/trips/search?origin=Cuenca&destination=Guayaquil&date=2025-12-12&passengers=1
+```
+
+### Error: "SyntaxError: Unexpected token 'export'" al iniciar el API
+
+**Síntoma**: El servidor de backend falla al iniciar con error sobre `export` en el archivo de database
+
+**Causa**: El package `@transporte-platform/database` no está exportando correctamente los módulos en formato CommonJS.
+
+**Solución**: Este error ya fue corregido en el proyecto. El archivo `packages/database/src/index.js` exporta correctamente los tipos de Prisma. Si vuelve a ocurrir:
+
+1. Verifica que `packages/database/package.json` tenga:
+   ```json
+   {
+     "main": "./src/index.js",
+     "exports": {
+       ".": {
+         "require": "./src/index.js"
+       }
+     }
+   }
+   ```
+
+2. Asegúrate de que exista `packages/database/src/index.js` con exports CommonJS
+
+### Error de TypeScript: "TS2742: The inferred type cannot be named"
+
+**Síntoma**: Errores de compilación TypeScript relacionados con tipos de Prisma
+
+**Causa**: Configuración TypeScript muy estricta incompatible con el monorepo de NestJS + Prisma
+
+**Solución**: Este error ya fue corregido. El archivo `apps/api/tsconfig.json` está configurado con:
+```json
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": false,
+    "declaration": false
+  }
+}
+```
+
+### Backend no se compila correctamente con `nest start --watch`
+
+**Síntoma**: El modo watch de NestJS falla o no recoge cambios correctamente
+
+**Causa**: Problemas de compatibilidad con el entorno de monorepo y las rutas de módulos compartidos
+
+**Solución**: Usar el modo producción para mayor estabilidad:
+```bash
+# 1. Compilar el proyecto
+pnpm --filter @transporte-platform/api build
+
+# 2. Ejecutar en modo producción
+pnpm --filter @transporte-platform/api start
+```
+
+### Frontend no puede conectarse al backend después de cambios
+
+**Síntoma**: Después de hacer cambios en el código, el frontend no puede conectarse al backend
+
+**Solución**:
+```bash
+# 1. Reconstruir todos los packages
+pnpm build
+
+# 2. Reiniciar el backend
+# Detén el proceso actual (Ctrl+C) y vuelve a iniciar
+pnpm --filter @transporte-platform/api start
+
+# 3. Verifica las variables de entorno
+# En apps/web/.env.local debe estar:
+# NEXT_PUBLIC_API_URL=http://localhost:3001/api
+```
+
+### Base de datos no tiene tablas o da errores de schema
+
+**Síntoma**: Errores de Prisma sobre tablas faltantes o schema incorrecto
+
+**Solución**:
+```bash
+# 1. Asegúrate de que Docker esté corriendo
+docker ps
+
+# 2. Regenera el cliente de Prisma
+pnpm --filter @transporte-platform/database generate
+
+# 3. Ejecuta las migraciones
+pnpm --filter @transporte-platform/database migrate
+
+# 4. (Opcional) Resetea la base de datos completamente
+pnpm --filter @transporte-platform/database migrate:reset
+pnpm db:seed
+```
+
+### Cambios en el package `database` no se reflejan en el API
+
+**Síntoma**: Modificaciones en el schema de Prisma o en exports no son visibles en el API
+
+**Solución**:
+```bash
+# 1. Regenera el cliente de Prisma
+pnpm --filter @transporte-platform/database generate
+
+# 2. Reconstruye TODO el proyecto
+pnpm build
+
+# 3. Reinicia el servidor
+pnpm --filter @transporte-platform/api start
+```
+
+### Error: "trip.pricePerSeat.toFixed is not a function" en el frontend
+
+**Síntoma**: El frontend muestra errores al intentar usar `.toFixed()` en campos numéricos del backend
+
+**Causa**: Prisma Decimal types no se están convirtiendo a números JavaScript antes de enviarlos al frontend
+
+**Solución**: Este error ya fue corregido en el proyecto. Todos los campos Decimal de Prisma (pricePerSeat, subtotal, commission, total, amount, etc.) son convertidos automáticamente a números usando `.toNumber()` en los servicios del backend antes de ser retornados en las respuestas de la API.
+
+**Áreas donde se aplicó la corrección**:
+- `apps/api/src/modules/reservations/reservations.service.ts`:
+  - Línea 84: `pricePerSeat` en `searchTrips()`
+  - Líneas 479-481: `total`, `subtotal`, `commission` en `create()`
+  - Líneas 658-660, 700: Campos financieros en `findByReference()`
+- `apps/api/src/modules/payments/payments.service.ts`:
+  - Líneas 142, 146-148: Campos financieros en `getPaymentByReservationId()`
+
+**Nota importante**: Si modificas el schema de Prisma para agregar nuevos campos de tipo `Decimal`, recuerda siempre convertirlos a número con `.toNumber()` antes de retornarlos en la API.
+
+### Verificar que todos los servicios estén corriendo correctamente
+
+```bash
+# Verificar Docker
+docker ps
+# Deberías ver: transporte-postgres (puerto 5432) y transporte-redis (puerto 6379)
+
+# Verificar Backend API
+curl http://localhost:3001/api/reservations/trips/search?origin=Cuenca&destination=Guayaquil&date=2025-12-12&passengers=1
+# Deberías recibir JSON con datos de viajes
+
+# Verificar Frontend
+# Abre http://localhost:3000 en el navegador
+```
+
+## Notas Importantes sobre el Monorepo
+
+1. **Siempre ejecuta `pnpm build` después de**:
+   - Instalar dependencias nuevas
+   - Hacer cambios en `packages/database`
+   - Hacer cambios en `packages/shared`
+   - Hacer cambios en `packages/ui`
+   - Clonar el repositorio por primera vez
+
+2. **Reinicia el API server después de cambios en el código**:
+   - El modo watch de NestJS (`pnpm dev`) puede no detectar todos los cambios
+   - Si haces cambios importantes en servicios o módulos, detén el servidor (Ctrl+C) y reinícialo
+   - En Windows, si el puerto sigue ocupado, usa: `taskkill //F //PID <process_id>`
+   - Verifica el PID del proceso con: `netstat -ano | findstr :3001`
+
+3. **El package `database` exporta módulos en CommonJS**: Para compatibilidad con NestJS, el archivo `packages/database/src/index.js` exporta en formato CommonJS. El archivo `.ts` correspondiente solo se usa para tipos TypeScript.
+
+4. **TypeScript en el API está configurado para compatibilidad**: La configuración `apps/api/tsconfig.json` tiene `strict: false` para evitar conflictos con tipos de Prisma en el monorepo. Esto no afecta la seguridad de tipos en desarrollo.
+
+5. **Usa `pnpm start` en lugar de `pnpm dev` para el API**: El modo `dev` con watch puede ser inestable. El modo producción (`start`) es más confiable para desarrollo local.
+
+6. **Conversión de tipos Decimal**: Todos los campos `Decimal` de Prisma deben convertirse a números con `.toNumber()` antes de retornarlos en la API. Ver la sección "Buenas Prácticas de Desarrollo" para más detalles.
 

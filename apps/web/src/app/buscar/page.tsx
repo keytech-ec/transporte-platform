@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CalendarIcon, MapPin, Search } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO, startOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,12 +27,16 @@ import { searchTripsSchema, type SearchTripsInput } from '@/lib/validations';
 import { useQuery } from '@tanstack/react-query';
 import { reservationsApi } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useBookingStore } from '@/stores/booking-store';
 
 export default function BuscarPage() {
+  const router = useRouter();
+  const { setPassengerCount } = useBookingStore();
   const [searchParams, setSearchParams] = useState<SearchTripsInput | null>(
     null
   );
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const form = useForm<SearchTripsInput>({
     resolver: zodResolver(searchTripsSchema),
@@ -52,6 +56,13 @@ export default function BuscarPage() {
 
   const onSubmit = (data: SearchTripsInput) => {
     setSearchParams(data);
+  };
+
+  const handleSelectTrip = (tripId: string) => {
+    // Store passenger count from the search form
+    const passengerCount = form.getValues('passengers');
+    setPassengerCount(passengerCount);
+    router.push(`/reservar/${tripId}`);
   };
 
   return (
@@ -105,7 +116,7 @@ export default function BuscarPage() {
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Fecha</FormLabel>
-                        <Popover>
+                        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button
@@ -116,7 +127,7 @@ export default function BuscarPage() {
                                 )}
                               >
                                 {field.value ? (
-                                  format(new Date(field.value), 'PPP')
+                                  format(parseISO(field.value), 'PPP')
                                 ) : (
                                   <span>Selecciona una fecha</span>
                                 )}
@@ -127,13 +138,14 @@ export default function BuscarPage() {
                           <PopoverContent className="w-auto p-0" align="start">
                             <Calendar
                               mode="single"
-                              selected={field.value ? new Date(field.value) : undefined}
-                              onSelect={(date) =>
+                              selected={field.value ? parseISO(field.value) : undefined}
+                              onSelect={(date) => {
                                 field.onChange(
                                   date ? format(date, 'yyyy-MM-dd') : ''
-                                )
-                              }
-                              disabled={(date) => date < new Date()}
+                                );
+                                setCalendarOpen(false);
+                              }}
+                              disabled={(date) => date < startOfDay(new Date())}
                               initialFocus
                             />
                           </PopoverContent>
@@ -205,11 +217,25 @@ export default function BuscarPage() {
                       <div className="flex items-center gap-2 mb-2">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
                         <span className="font-semibold">
-                          {trip.service.origin} → {trip.service.destination}
+                          {trip.origin} → {trip.destination}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
-                        {format(new Date(trip.departureTime), 'PPP p')}
+                        {(() => {
+                          try {
+                            // Extract date from departureDate (YYYY-MM-DD)
+                            const dateStr = typeof trip.departureDate === 'string'
+                              ? trip.departureDate.split('T')[0]
+                              : trip.departureDate;
+                            // Extract time from departureTime (HH:MM:SS)
+                            const timeStr = typeof trip.departureTime === 'string'
+                              ? trip.departureTime.split('T')[1] || trip.departureTime
+                              : trip.departureTime;
+                            return format(parseISO(`${dateStr}T${timeStr}`), 'PPP p');
+                          } catch (e) {
+                            return 'Fecha no disponible';
+                          }
+                        })()}
                       </p>
                       <p className="text-sm">
                         Asientos disponibles: {trip.availableSeats}
@@ -218,9 +244,9 @@ export default function BuscarPage() {
                         ${trip.pricePerSeat.toFixed(2)} por asiento
                       </p>
                     </div>
-                    <Link href={`/reservar/${trip.id}`}>
-                      <Button>Seleccionar</Button>
-                    </Link>
+                    <Button onClick={() => handleSelectTrip(trip.id)}>
+                      Seleccionar
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

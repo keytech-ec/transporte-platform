@@ -15,7 +15,7 @@ import {
   InvalidReservationStatusException,
 } from './exceptions/reservation.exceptions';
 import { generateBookingReference } from './utils/booking-reference.util';
-import { Prisma, DocumentType, ReservationType, BookingChannel } from '@transporte-platform/database';
+import { DocumentType, ReservationType, BookingChannel } from '@transporte-platform/database';
 
 // Map to store lock information: lockId -> { tripId, seatIds, lockedUntil }
 const lockStore = new Map<
@@ -33,11 +33,13 @@ export class ReservationsService {
   async searchTrips(searchDto: SearchTripsDto) {
     const { origin, destination, date, passengers } = searchDto;
 
-    // Parse date to start of day for comparison
-    const searchDate = new Date(date);
+    // Parse date to start of day for comparison (in local timezone, not UTC)
+    const [year, month, day] = date.split('-').map(Number);
+    const searchDate = new Date(year, month - 1, day); // month is 0-indexed
     searchDate.setHours(0, 0, 0, 0);
-    const nextDay = new Date(searchDate);
+    const nextDay = new Date(year, month - 1, day);
     nextDay.setDate(nextDay.getDate() + 1);
+    nextDay.setHours(0, 0, 0, 0);
 
     const trips = await this.prisma.scheduledTrip.findMany({
       where: {
@@ -81,7 +83,7 @@ export class ReservationsService {
       destination: trip.service.destination,
       departureDate: trip.departureDate,
       departureTime: trip.departureTime,
-      pricePerSeat: trip.pricePerSeat,
+      pricePerSeat: trip.pricePerSeat.toNumber(),
       availableSeats: trip.availableSeats,
       totalSeats: trip.totalSeats,
       vehicle: {
@@ -476,9 +478,9 @@ export class ReservationsService {
         reservationId: reservation.id,
         bookingReference: reservation.bookingReference,
         status: reservation.status,
-        total: reservation.total,
-        subtotal: reservation.subtotal,
-        commission: reservation.commission,
+        total: reservation.total.toNumber(),
+        subtotal: reservation.subtotal.toNumber(),
+        commission: reservation.commission.toNumber(),
       };
     });
   }
@@ -655,9 +657,9 @@ export class ReservationsService {
       status: reservation.status,
       reservationType: reservation.reservationType,
       numPassengers: reservation.numPassengers,
-      subtotal: reservation.subtotal,
-      commission: reservation.commission,
-      total: reservation.total,
+      subtotal: reservation.subtotal.toNumber(),
+      commission: reservation.commission.toNumber(),
+      total: reservation.total.toNumber(),
       channel: reservation.channel,
       createdAt: reservation.createdAt,
       updatedAt: reservation.updatedAt,
@@ -697,7 +699,7 @@ export class ReservationsService {
       })),
       transactions: reservation.transactions.map((t) => ({
         id: t.id,
-        amount: t.amount,
+        amount: t.amount.toNumber(),
         status: t.status,
         gateway: t.gateway,
         createdAt: t.createdAt,

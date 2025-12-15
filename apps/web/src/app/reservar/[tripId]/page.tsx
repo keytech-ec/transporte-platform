@@ -16,7 +16,7 @@ export default function ReservarPage() {
   const params = useParams();
   const router = useRouter();
   const tripId = params.tripId as string;
-  const { setSelectedTrip, setSelectedSeats, setLockId } = useBookingStore();
+  const { passengerCount, setSelectedTrip, setSelectedSeats, setLockId } = useBookingStore();
   const [selectedSeats, setLocalSelectedSeats] = useState<string[]>([]);
 
   const { data: trip, isLoading: tripLoading } = useQuery({
@@ -40,12 +40,16 @@ export default function ReservarPage() {
     if (selectedSeats.includes(seatId)) {
       setLocalSelectedSeats(selectedSeats.filter((id) => id !== seatId));
     } else {
+      // Check if we've reached the passenger limit
+      if (selectedSeats.length >= passengerCount) {
+        return; // Don't allow selecting more seats
+      }
       setLocalSelectedSeats([...selectedSeats, seatId]);
     }
   };
 
   const handleContinue = () => {
-    if (selectedSeats.length === 0) {
+    if (selectedSeats.length !== passengerCount) {
       return;
     }
     lockSeatsMutation.mutate(selectedSeats);
@@ -89,14 +93,17 @@ export default function ReservarPage() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Selecciona tus asientos</CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              Selecciona {passengerCount} asiento{passengerCount !== 1 ? 's' : ''} para {passengerCount} pasajero{passengerCount !== 1 ? 's' : ''}
+            </p>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-4 gap-2 mb-6">
               {(trip as any)?.seats?.map((seat: any) => {
                 const isSelected = selectedSeats.includes(seat.id);
-                const isAvailable = seat.status === 'AVAILABLE';
-                const isLocked = seat.status === 'LOCKED';
-                const isReserved = seat.status === 'RESERVED' || seat.status === 'CONFIRMED';
+                const isAvailable = seat.status === 'available';
+                const isLocked = seat.status === 'locked';
+                const isReserved = seat.status === 'reserved' || seat.status === 'confirmed';
 
                 return (
                   <button
@@ -138,13 +145,15 @@ export default function ReservarPage() {
 
             <div className="flex justify-between items-center">
               <p className="text-sm text-muted-foreground">
-                {selectedSeats.length} asiento(s) seleccionado(s)
+                {selectedSeats.length} de {passengerCount} asiento(s) seleccionado(s)
               </p>
               <Button
                 onClick={handleContinue}
-                disabled={selectedSeats.length === 0 || lockSeatsMutation.isPending}
+                disabled={selectedSeats.length !== passengerCount || lockSeatsMutation.isPending}
               >
-                Continuar
+                {selectedSeats.length !== passengerCount
+                  ? `Selecciona ${passengerCount - selectedSeats.length} más`
+                  : 'Continuar'}
               </Button>
             </div>
           </CardContent>

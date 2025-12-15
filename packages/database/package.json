@@ -2,8 +2,15 @@
   "name": "@transporte-platform/database",
   "version": "1.0.0",
   "private": true,
-  "main": "./src/index.ts",
+  "main": "./src/index.js",
   "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "require": "./src/index.js",
+      "types": "./src/index.ts"
+    }
+  },
   "scripts": {
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",

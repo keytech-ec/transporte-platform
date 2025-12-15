@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(tasklist:*)",
+      "Bash(pnpm dev)",
+      "Bash(pnpm build:*)",
+      "Bash(npx tsx:*)",
+      "Bash(pnpm start)",
+      "Bash(curl:*)",
+      "Bash(taskkill /F /PID 25108)",
+      "Bash(taskkill //F //PID 25108)",
+      "Bash(timeout 20 cmd /c \"type nul && ping localhost -n 20 > nul\")"
+    ]
+  }
+}

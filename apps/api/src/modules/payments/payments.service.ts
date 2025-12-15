@@ -139,13 +139,13 @@ export class PaymentsService {
       reservationId: reservation.id,
       bookingReference: reservation.bookingReference,
       status: reservation.status,
-      total: reservation.total,
+      total: reservation.total.toNumber(),
       transaction: latestTransaction
         ? {
             id: latestTransaction.id,
-            amount: latestTransaction.amount,
-            commission: latestTransaction.commission,
-            providerAmount: latestTransaction.providerAmount,
+            amount: latestTransaction.amount.toNumber(),
+            commission: latestTransaction.commission.toNumber(),
+            providerAmount: latestTransaction.providerAmount.toNumber(),
             gateway: latestTransaction.gateway,
             status: latestTransaction.status,
             createdAt: latestTransaction.createdAt,
