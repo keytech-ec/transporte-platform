@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -41,6 +41,9 @@ export default function MisReservasPage() {
 
   const form = useForm<BookingReferenceInput>({
     resolver: zodResolver(bookingReferenceSchema),
+    defaultValues: {
+      reference: '',
+    },
   });
 
   const { data: reservation, refetch, isLoading } = useQuery<unknown>({
@@ -48,6 +51,13 @@ export default function MisReservasPage() {
     queryFn: () => reservationsApi.getByReference(reference),
     enabled: false,
   });
+
+  // Trigger refetch when reference state updates
+  useEffect(() => {
+    if (reference && reference.trim() !== '') {
+      refetch();
+    }
+  }, [reference, refetch]);
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => reservationsApi.cancel(id),
@@ -69,8 +79,7 @@ export default function MisReservasPage() {
   });
 
   const onSubmit = (data: BookingReferenceInput) => {
-    setReference(data.reference);
-    refetch();
+    setReference(data.reference.trim().toUpperCase());
   };
 
   const handleCancelReservation = () => {
@@ -167,8 +176,7 @@ export default function MisReservasPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Ruta</p>
                 <p className="font-semibold">
-                  {(reservation as any).trip?.service?.origin} →{' '}
-                  {(reservation as any).trip?.service?.destination}
+                  {(reservation as any).trip?.origin} → {(reservation as any).trip?.destination}
                 </p>
               </div>
               <div>
