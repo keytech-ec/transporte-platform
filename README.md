@@ -4,10 +4,14 @@ Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
 
 ## Actualizaciones Recientes
 
-### Diciembre 2025 - Correcciones de Compatibilidad Frontend-Backend
+### Diciembre 2025 - Correcciones de Compatibilidad Frontend-Backend y Timezone
 - ✅ **Conversión de tipos Decimal de Prisma**: Todos los campos Decimal (`pricePerSeat`, `subtotal`, `total`, `commission`, `amount`, etc.) ahora se convierten automáticamente a números JavaScript usando `.toNumber()` antes de ser enviados al frontend
 - ✅ **Corrección de estructura de datos**: Ajustada la respuesta de `searchTrips()` para exponer `origin` y `destination` en el nivel superior del objeto viaje
+- ✅ **Corrección de timezone en búsqueda de viajes**: El backend ahora parsea fechas en timezone local en lugar de UTC, evitando búsquedas del día anterior
+- ✅ **Corrección de timezone en calendario**: El frontend usa `parseISO()` para manejar fechas correctamente en timezone local
+- ✅ **Validación inteligente de pasajeros**: El sistema captura el número de pasajeros al realizar la búsqueda, previene desajustes si se cambia el formulario sin re-buscar, ajusta automáticamente a los asientos disponibles, y notifica al usuario cuando hay asientos limitados
 - ✅ **Frontend de búsqueda funcional**: La página `/buscar` ahora muestra correctamente los viajes disponibles con toda su información (ruta, horarios, precios, asientos disponibles)
+- ✅ **Seed actualizado**: Ahora genera viajes de prueba para los próximos 7 días (28 viajes totales)
 - ✅ **Documentación actualizada**: Agregadas guías de buenas prácticas para el manejo de tipos Decimal y troubleshooting de errores comunes
 
 ## Estructura
@@ -759,12 +763,14 @@ pnpm db:seed
 - **Tour Centro Histórico**: $15.00, 2 horas
 - **Tour Cajas**: $35.00, 6 horas
 
-### Viajes Programados (15)
-Se generan viajes para los próximos días:
-- **Cuenca-Guayaquil**: 6:00 AM y 2:00 PM (8 viajes en 4 días)
-- **Tour Centro Histórico**: 10:00 AM y 3:00 PM (7 viajes en 4 días)
+### Viajes Programados (28)
+Se generan viajes para los próximos 7 días desde la fecha de ejecución del seed:
+- **Cuenca-Guayaquil**: 6:00 AM y 2:00 PM (14 viajes en 7 días)
+- **Tour Centro Histórico**: 10:00 AM y 3:00 PM (14 viajes en 7 días)
 
 Los asientos se generan automáticamente para cada viaje según el vehículo asignado.
+
+**Nota**: Los viajes se crean a partir de la fecha actual (`new Date()`), por lo que si el seed se ejecutó hace varios días, es posible que necesites volver a ejecutarlo para tener viajes disponibles en fechas futuras.
 
 ### Usuarios (3)
 - `admin@platform.com` - SUPER_ADMIN (sin provider)
@@ -1047,15 +1053,19 @@ Los esquemas de validación están en `src/lib/validations.ts` usando Zod:
 ### Características Implementadas
 
 - ✅ Landing page con diseño moderno
-- ✅ Búsqueda de viajes con filtros
+- ✅ Búsqueda de viajes con filtros (origen, destino, fecha, pasajeros)
+- ✅ Calendario con selección de fechas y cierre automático
+- ✅ Manejo correcto de timezones (UTC vs local)
 - ✅ Visualización interactiva de mapa de asientos
+- ✅ Validación inteligente de pasajeros: captura el número en la búsqueda, previene desajustes, ajusta automáticamente a asientos disponibles con notificación toast
 - ✅ Sistema de bloqueo de asientos (15 minutos)
+- ✅ Estado global de reserva con Zustand (número de pasajeros, asientos seleccionados, etc.)
 - ✅ Formulario completo de checkout
 - ✅ Integración con gateways de pago
 - ✅ Página de confirmación con código QR
 - ✅ Consulta de reservas por referencia
-- ✅ Validación completa de formularios
-- ✅ Manejo de estados de carga
+- ✅ Validación completa de formularios con React Hook Form + Zod
+- ✅ Manejo de estados de carga con Skeleton components
 - ✅ Notificaciones toast
 - ✅ Diseño responsive
 - ✅ TypeScript strict mode
@@ -1233,6 +1243,33 @@ pnpm --filter @transporte-platform/api start
   - Líneas 142, 146-148: Campos financieros en `getPaymentByReservationId()`
 
 **Nota importante**: Si modificas el schema de Prisma para agregar nuevos campos de tipo `Decimal`, recuerda siempre convertirlos a número con `.toNumber()` antes de retornarlos en la API.
+
+### Error: El calendario selecciona el día anterior o muestra viajes del día anterior
+
+**Síntoma**: Al seleccionar una fecha (ej: 15 de diciembre), se selecciona o muestra el día anterior (14 de diciembre)
+
+**Causa**: Problema de timezone. JavaScript interpreta strings de fecha como `"2025-12-15"` como UTC medianoche, lo que en timezones detrás de UTC (como Ecuador UTC-5) resulta en el día anterior.
+
+**Solución**: Este error ya fue corregido en el proyecto:
+
+**Backend** (`apps/api/src/modules/reservations/reservations.service.ts`, líneas 37-42):
+```typescript
+// ❌ INCORRECTO - Interpreta como UTC
+const searchDate = new Date(date);
+
+// ✅ CORRECTO - Interpreta en timezone local
+const [year, month, day] = date.split('-').map(Number);
+const searchDate = new Date(year, month - 1, day);
+```
+
+**Frontend** (`apps/web/src/app/buscar/page.tsx`):
+- Usa `parseISO()` de `date-fns` en lugar de `new Date()` para parsear fechas ISO
+- Usa `startOfDay()` para comparar fechas sin componente de hora
+- Combina `departureDate` y `departureTime` correctamente para mostrar fechas completas
+
+**Calendario** (`apps/web/src/app/buscar/page.tsx`, líneas 130, 136):
+- Popover controlado con estado `calendarOpen`
+- Se cierra automáticamente al seleccionar fecha con `setCalendarOpen(false)`
 
 ### Verificar que todos los servicios estén corriendo correctamente
 

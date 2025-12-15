@@ -29,9 +29,11 @@ import { reservationsApi } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import { useBookingStore } from '@/stores/booking-store';
+import { useToast } from '@/hooks/use-toast';
 
 export default function BuscarPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const { setPassengerCount } = useBookingStore();
   const [searchParams, setSearchParams] = useState<SearchTripsInput | null>(
     null
@@ -56,12 +58,27 @@ export default function BuscarPage() {
 
   const onSubmit = (data: SearchTripsInput) => {
     setSearchParams(data);
+    // Store passenger count when search is submitted
+    setPassengerCount(data.passengers);
   };
 
-  const handleSelectTrip = (tripId: string) => {
-    // Store passenger count from the search form
-    const passengerCount = form.getValues('passengers');
-    setPassengerCount(passengerCount);
+  const handleSelectTrip = (tripId: string, availableSeats: number) => {
+    // Use passenger count from the actual search performed, not current form value
+    if (!searchParams) return;
+
+    // Cap passenger count to available seats if needed
+    const effectivePassengerCount = Math.min(searchParams.passengers, availableSeats);
+
+    // Notify user if passenger count was reduced
+    if (effectivePassengerCount < searchParams.passengers) {
+      toast({
+        title: "Asientos limitados",
+        description: `Este viaje solo tiene ${availableSeats} asientos disponibles. Seleccionarás ${effectivePassengerCount} asiento${effectivePassengerCount !== 1 ? 's' : ''}.`,
+        variant: "default",
+      });
+    }
+
+    setPassengerCount(effectivePassengerCount);
     router.push(`/reservar/${tripId}`);
   };
 
@@ -244,7 +261,7 @@ export default function BuscarPage() {
                         ${trip.pricePerSeat.toFixed(2)} por asiento
                       </p>
                     </div>
-                    <Button onClick={() => handleSelectTrip(trip.id)}>
+                    <Button onClick={() => handleSelectTrip(trip.id, trip.availableSeats)}>
                       Seleccionar
                     </Button>
                   </div>

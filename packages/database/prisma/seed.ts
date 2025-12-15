@@ -270,8 +270,8 @@ async function main() {
   
   const trips = [];
 
-  // Cuenca-Guayaquil: 6:00 and 14:00 daily (8 trips over 4 days)
-  for (let day = 0; day < 4; day++) {
+  // Cuenca-Guayaquil: 6:00 and 14:00 daily (14 trips over 7 days)
+  for (let day = 0; day < 7; day++) {
     const tripDate = new Date(today);
     tripDate.setDate(tripDate.getDate() + day);
     tripDate.setHours(0, 0, 0, 0);
@@ -318,8 +318,8 @@ async function main() {
     trips.push(trip1, trip2);
   }
 
-  // Tour Centro: 10:00 and 15:00 daily (7 trips: 3 days × 2 trips + 1 day × 1 trip)
-  for (let day = 0; day < 4; day++) {
+  // Tour Centro: 10:00 and 15:00 daily (14 trips over 7 days)
+  for (let day = 0; day < 7; day++) {
     const tripDate = new Date(today);
     tripDate.setDate(tripDate.getDate() + day);
     tripDate.setHours(0, 0, 0, 0);
@@ -346,27 +346,25 @@ async function main() {
 
     trips.push(tourTrip1);
 
-    // 15:00 PM trip (only for first 3 days to get exactly 7 trips total)
-    if (day < 3) {
-      const time3PM = new Date(tripDate);
-      time3PM.setHours(15, 0, 0, 0);
-      
-      const tourTrip2 = await prisma.scheduledTrip.create({
-        data: {
-          serviceId: tourCentro.id,
-          vehicleId: van.id,
-          departureDate: departureDateOnly,
-          departureTime: time3PM,
-          totalSeats: van.totalSeats,
-          availableSeats: van.totalSeats,
-          pricePerSeat: tourCentro.basePrice!,
-          bookingMode: 'PER_SEAT',
-          status: 'SCHEDULED',
-        },
-      });
+    // 15:00 PM trip
+    const time3PM = new Date(tripDate);
+    time3PM.setHours(15, 0, 0, 0);
 
-      trips.push(tourTrip2);
-    }
+    const tourTrip2 = await prisma.scheduledTrip.create({
+      data: {
+        serviceId: tourCentro.id,
+        vehicleId: van.id,
+        departureDate: departureDateOnly,
+        departureTime: time3PM,
+        totalSeats: van.totalSeats,
+        availableSeats: van.totalSeats,
+        pricePerSeat: tourCentro.basePrice!,
+        bookingMode: 'PER_SEAT',
+        status: 'SCHEDULED',
+      },
+    });
+
+    trips.push(tourTrip2);
   }
 
   console.log(`   ✓ Created ${trips.length} scheduled trips`);
