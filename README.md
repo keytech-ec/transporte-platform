@@ -4,6 +4,9 @@ Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
 
 ## Actualizaciones Recientes
 
+### Diciembre 2025 - Actualización Crítica de Seguridad
+- 🔐 **Next.js actualizado a 14.2.35**: Corrección de vulnerabilidades críticas CVE-2025-66478 (RCE CVSS 10.0), CVE-2025-29927 (Middleware bypass), y CVE-2025-67779 (DoS). **Actualización obligatoria desde versiones 14.0.x-14.1.x**
+
 ### Diciembre 2025 - Correcciones de Compatibilidad Frontend-Backend y Timezone
 - ✅ **Conversión de tipos Decimal de Prisma**: Todos los campos Decimal (`pricePerSeat`, `subtotal`, `total`, `commission`, `amount`, etc.) ahora se convierten automáticamente a números JavaScript usando `.toNumber()` antes de ser enviados al frontend
 - ✅ **Corrección de estructura de datos**: Ajustada la respuesta de `searchTrips()` para exponer `origin` y `destination` en el nivel superior del objeto viaje
@@ -1086,7 +1089,7 @@ Los esquemas de validación están en `src/lib/validations.ts` usando Zod:
 
 - **Monorepo**: pnpm workspaces + Turborepo
 - **Backend**: NestJS 10
-- **Frontend Web**: Next.js 14 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
+- **Frontend Web**: Next.js 14.2.35 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
 - **Database**: PostgreSQL 15 + Prisma ORM
 - **Cache**: Redis 7
 - **TypeScript**: Strict mode (frontend), configurado para compatibilidad en backend
