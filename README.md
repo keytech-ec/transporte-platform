@@ -7,6 +7,13 @@ Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
 ### Diciembre 2025 - Actualización Crítica de Seguridad
 - 🔐 **Next.js actualizado a 14.2.35**: Corrección de vulnerabilidades críticas CVE-2025-66478 (RCE CVSS 10.0), CVE-2025-29927 (Middleware bypass), y CVE-2025-67779 (DoS). **Actualización obligatoria desde versiones 14.0.x-14.1.x**
 
+### Diciembre 2025 - Mejoras de UX en Flujo de Reserva
+- ✅ **Cálculo de precio en tiempo real**: La selección de asientos muestra el precio total actualizado instantáneamente al seleccionar/deseleccionar asientos
+- ✅ **Resumen de compra en checkout**: Panel lateral con detalles completos del viaje, asientos seleccionados, desglose de precios y total a pagar
+- ✅ **Visualización de asignación asiento-pasajero**: Cada formulario de pasajero muestra claramente el asiento asignado, con mapa visual en el resumen de compra
+- ✅ **Cancelación de reservas**: Los usuarios pueden cancelar reservas pendientes o confirmadas desde "Mis Reservas" con diálogo de confirmación, liberación automática de asientos y notificaciones toast
+- ✅ **Página de confirmación mejorada**: Muestra claramente la ruta (origen → destino), asientos asignados a cada pasajero con badges visuales, fecha/hora de salida formateada correctamente, y botón funcional de descarga que permite guardar el comprobante como PDF usando la funcionalidad de impresión del navegador
+
 ### Diciembre 2025 - Correcciones de Compatibilidad Frontend-Backend y Timezone
 - ✅ **Conversión de tipos Decimal de Prisma**: Todos los campos Decimal (`pricePerSeat`, `subtotal`, `total`, `commission`, `amount`, etc.) ahora se convierten automáticamente a números JavaScript usando `.toNumber()` antes de ser enviados al frontend
 - ✅ **Corrección de estructura de datos**: Ajustada la respuesta de `searchTrips()` para exponer `origin` y `destination` en el nivel superior del objeto viaje
@@ -371,6 +378,8 @@ APP_URL=http://localhost:3000
   - Incluye precio, horario, vehículo, amenities
 - `GET /api/reservations/trips/:tripId/seats` - Obtener mapa de asientos de un viaje
   - Retorna estado de cada asiento (available/locked/confirmed/reserved/blocked)
+  - Incluye información del viaje (origin, destination, departureDate, departureTime)
+  - Incluye precio por asiento para cálculos en frontend
   - Incluye layout para renderizar en frontend
 - `POST /api/reservations/lock-seats` - Bloquear asientos para checkout
   - Body: `{ tripId, seatIds: string[] }`
@@ -958,8 +967,12 @@ Página de confirmación con:
 #### `/mis-reservas` - Consultar Reservas
 Búsqueda de reservas por número de referencia:
 - Input para ingresar referencia
-- Visualización de detalles de la reserva encontrada
-- Botón para ver detalles completos (redirige a `/confirmacion/[reference]`)
+- Visualización de detalles de la reserva encontrada con badges de estado visuales (Pendiente, Confirmada, Cancelada, Reembolsada)
+- Botón "Ver detalles completos" (redirige a `/confirmacion/[reference]`)
+- Botón "Cancelar reserva" (solo visible si status es PENDING o CONFIRMED)
+- Diálogo de confirmación con advertencia antes de cancelar
+- Mensaje informativo para reservas ya canceladas
+- Notificaciones toast para feedback de cancelación
 
 ### Componentes UI
 
@@ -1060,13 +1073,17 @@ Los esquemas de validación están en `src/lib/validations.ts` usando Zod:
 - ✅ Calendario con selección de fechas y cierre automático
 - ✅ Manejo correcto de timezones (UTC vs local)
 - ✅ Visualización interactiva de mapa de asientos
+- ✅ **Cálculo de precio en tiempo real** durante selección de asientos
 - ✅ Validación inteligente de pasajeros: captura el número en la búsqueda, previene desajustes, ajusta automáticamente a asientos disponibles con notificación toast
 - ✅ Sistema de bloqueo de asientos (15 minutos)
 - ✅ Estado global de reserva con Zustand (número de pasajeros, asientos seleccionados, etc.)
-- ✅ Formulario completo de checkout
+- ✅ **Resumen de compra completo en checkout** con panel lateral sticky
+- ✅ **Asignación visual de asientos a pasajeros** en formularios y resumen
+- ✅ Formulario completo de checkout con validación
 - ✅ Integración con gateways de pago
 - ✅ Página de confirmación con código QR
 - ✅ Consulta de reservas por referencia
+- ✅ **Cancelación de reservas** con diálogo de confirmación y badges de estado (Pendiente, Confirmada, Cancelada, Reembolsada)
 - ✅ Validación completa de formularios con React Hook Form + Zod
 - ✅ Manejo de estados de carga con Skeleton components
 - ✅ Notificaciones toast

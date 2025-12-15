@@ -8,18 +8,33 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, Download, Home } from 'lucide-react';
 import Link from 'next/link';
-import { formatDateTime, formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { QRCodeSVG } from 'qrcode.react';
+import { format, parseISO } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ConfirmacionPage() {
   const params = useParams();
   const reference = params.reference as string;
+  const { toast } = useToast();
 
   const { data: reservation, isLoading } = useQuery({
     queryKey: ['reservation', reference],
     queryFn: () => reservationsApi.getByReference(reference),
     enabled: !!reference,
   });
+
+  const handleDownload = () => {
+    // TODO: Implement PDF generation
+    // For now, use browser's print functionality
+    toast({
+      title: "Generando comprobante",
+      description: "Se abrirá la ventana de impresión. Puedes guardar como PDF desde allí.",
+    });
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
 
   if (isLoading) {
     return (
@@ -77,20 +92,32 @@ export default function ConfirmacionPage() {
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">Ruta</p>
-              <p className="font-semibold">
-                {(reservation as any).trip?.service?.origin} →{' '}
-                {(reservation as any).trip?.service?.destination}
+              <p className="font-semibold text-lg">
+                {(reservation as any).trip?.origin} → {(reservation as any).trip?.destination}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Fecha y hora</p>
+              <p className="text-sm text-muted-foreground">Fecha y hora de salida</p>
               <p className="font-semibold">
-                {formatDateTime((reservation as any).trip?.departureTime)}
+                {(() => {
+                  try {
+                    const trip = (reservation as any).trip;
+                    const dateStr = typeof trip?.departureDate === 'string'
+                      ? trip.departureDate.split('T')[0]
+                      : trip?.departureDate;
+                    const timeStr = typeof trip?.departureTime === 'string'
+                      ? trip.departureTime.split('T')[1] || trip.departureTime
+                      : trip?.departureTime;
+                    return format(parseISO(`${dateStr}T${timeStr}`), 'PPP p');
+                  } catch (e) {
+                    return 'Fecha no disponible';
+                  }
+                })()}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Pasajeros</p>
-              <p className="font-semibold">{(reservation as any).passengerCount}</p>
+              <p className="text-sm text-muted-foreground">Número de pasajeros</p>
+              <p className="font-semibold">{(reservation as any).passengers?.length || 0}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total pagado</p>
@@ -103,17 +130,22 @@ export default function ConfirmacionPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Pasajeros</CardTitle>
+            <CardTitle>Pasajeros y asientos asignados</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {((reservation as any).passengers || []).map((passenger: any, index: number) => (
                 <div key={index} className="border-b pb-3 last:border-0">
-                  <p className="font-semibold">
-                    {passenger.firstName} {passenger.lastName}
-                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-semibold">
+                      {passenger.firstName} {passenger.lastName}
+                    </p>
+                    <div className="px-3 py-1 bg-transporte-blue-500 text-white rounded-md font-bold">
+                      Asiento {passenger.seat?.seatNumber || '-'}
+                    </div>
+                  </div>
                   <p className="text-sm text-muted-foreground">
-                    {passenger.documentType}: {passenger.documentNumber}
+                    Documento: {passenger.documentNumber}
                   </p>
                 </div>
               ))}
@@ -122,7 +154,7 @@ export default function ConfirmacionPage() {
         </Card>
 
         <div className="flex gap-4 mt-6">
-          <Button variant="outline" className="flex-1">
+          <Button variant="outline" className="flex-1" onClick={handleDownload}>
             <Download className="mr-2 h-4 w-4" />
             Descargar comprobante
           </Button>

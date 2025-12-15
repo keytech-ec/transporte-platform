@@ -75,24 +75,53 @@ export default function CheckoutPage() {
     onSuccess: async (reservation: any) => {
       setCustomer(form.getValues('customer'));
       setPassengers(form.getValues('passengers'));
-      
-      // Crear link de pago
-      const paymentLink: any = await paymentsApi.createPaymentLink({
-        reservationId: reservation.id,
-        gateway: 'DEUNA', // o 'PAYPHONE'
-      });
 
-      // Redirigir a la URL de pago
-      if (paymentLink?.paymentUrl) {
-        window.location.href = paymentLink.paymentUrl;
-      } else {
-        router.push(`/confirmacion/${reservation.bookingReference}`);
-      }
+      // TODO: Payment gateway integration
+      // For now, we'll skip payment and go directly to confirmation
+      // In production, uncomment the payment flow below:
+
+      // try {
+      //   const paymentLink: any = await paymentsApi.createPaymentLink({
+      //     reservationId: reservation.id,
+      //     gateway: 'DEUNA',
+      //   });
+      //   if (paymentLink?.paymentUrl) {
+      //     window.location.href = paymentLink.paymentUrl;
+      //     return;
+      //   }
+      // } catch (error) {
+      //   console.error('Payment link creation failed:', error);
+      // }
+
+      // Skip payment for now - go directly to confirmation
+      router.push(`/confirmacion/${reservation.bookingReference}`);
+    },
+    onError: (error: any) => {
+      console.error('Reservation creation error:', error);
+      alert(`Error al crear la reserva: ${error.message || 'Por favor verifica los datos e intenta nuevamente.'}`);
     },
   });
 
   const onSubmit = (data: ReservationInput) => {
-    createReservationMutation.mutate(data);
+    console.log('Form data:', data);
+
+    // Transform data to match backend expectations
+    const transformedData = {
+      tripId: data.tripId,
+      lockId: data.lockId,
+      seatIds: data.seatIds,
+      customer: data.customer,
+      passengers: data.passengers.map((passenger: any, index: number) => ({
+        documentNumber: passenger.documentNumber,
+        firstName: passenger.firstName,
+        lastName: passenger.lastName,
+        seatId: data.seatIds[index], // Assign seat to passenger by index
+      })),
+      reservationType: 'PER_SEAT', // Backend expects 'PER_SEAT' not 'ONE_WAY'
+    };
+
+    console.log('Transformed reservation data:', transformedData);
+    createReservationMutation.mutate(transformedData as any);
   };
 
   if (tripLoading) {
@@ -256,9 +285,17 @@ export default function CheckoutPage() {
                   <div className="space-y-4">
                     {form.watch('passengers').map((_: unknown, index: number) => (
                       <div key={index} className="border p-4 rounded-lg">
-                        <h4 className="font-medium mb-3">
-                          Pasajero {index + 1}
-                        </h4>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-medium">
+                            Pasajero {index + 1}
+                          </h4>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Asiento:</span>
+                            <div className="px-3 py-1 bg-transporte-blue-500 text-white rounded-md text-sm font-bold">
+                              {selectedSeatObjects[index]?.seatNumber || '-'}
+                            </div>
+                          </div>
+                        </div>
                         <div className="space-y-4">
                           <FormField
                             control={form.control}
@@ -415,13 +452,16 @@ export default function CheckoutPage() {
                 {/* Selected Seats */}
                 <div>
                   <h3 className="font-semibold mb-2">Asientos seleccionados</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedSeatObjects.map((seat: any) => (
+                  <div className="space-y-2">
+                    {selectedSeatObjects.map((seat: any, index: number) => (
                       <div
                         key={seat.id}
-                        className="px-3 py-1 bg-transporte-blue-100 text-transporte-blue-700 rounded-md text-sm font-medium"
+                        className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded"
                       >
-                        {seat.seatNumber}
+                        <span className="text-muted-foreground">Pasajero {index + 1}</span>
+                        <div className="px-3 py-1 bg-transporte-blue-500 text-white rounded-md font-bold">
+                          {seat.seatNumber}
+                        </div>
                       </div>
                     ))}
                   </div>
