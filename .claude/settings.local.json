@@ -24,7 +24,13 @@
       "Bash(npx shadcn@latest add:*)",
       "Bash(taskkill:*)",
       "Bash(pnpm build:reservations:*)",
-      "Bash(pnpm --filter @transporte-platform/api build:*)"
+      "Bash(pnpm --filter @transporte-platform/api build:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm --filter @transporte-platform/api add:*)",
+      "Bash(pnpm --filter @transporte-platform/api start)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(pnpm --filter @transporte-platform/dashboard dev:*)"
     ]
   }
 }

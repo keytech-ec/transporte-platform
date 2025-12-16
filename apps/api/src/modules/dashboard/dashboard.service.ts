@@ -115,7 +115,7 @@ export class DashboardService {
       ).length;
 
       chartData.push({
-        day: format(date, 'EEE', { locale: require('date-fns/locale/es') }),
+        day: format(date, 'EEE'),
         reservations: count,
       });
     }
