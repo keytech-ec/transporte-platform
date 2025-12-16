@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LogOut, User } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export function DashboardHeader() {
@@ -23,13 +23,13 @@ export function DashboardHeader() {
     router.push('/login');
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName[0]}${lastName[0]}`.toUpperCase();
+  };
+
+  const getFullName = () => {
+    if (!user) return 'Usuario';
+    return `${user.firstName} ${user.lastName}`;
   };
 
   return (
@@ -44,7 +44,7 @@ export function DashboardHeader() {
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar>
                 <AvatarFallback className="bg-primary text-primary-foreground">
-                  {user?.name ? getInitials(user.name) : 'U'}
+                  {user ? getInitials(user.firstName, user.lastName) : 'U'}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -52,7 +52,7 @@ export function DashboardHeader() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user?.name || 'Usuario'}</p>
+                <p className="text-sm font-medium leading-none">{getFullName()}</p>
                 <p className="text-xs leading-none text-muted-foreground">
                   {user?.email || ''}
                 </p>

@@ -20,33 +20,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, Eye, Download, CheckCircle, XCircle, Clock } from 'lucide-react';
-import api from '@/lib/api';
+import { Search, CheckCircle, XCircle, Clock } from 'lucide-react';
+import api, { type Reservation as ApiReservation } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-interface Reservation {
-  id: string;
-  reference: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
-  total: number;
-  createdAt: string;
-  passengers: any[];
-  trip?: {
-    date: string;
-    departureTime: string;
-    service?: {
-      origin: string;
-      destination: string;
-      name: string;
-    };
-  };
-}
-
 export default function ReservationsPage() {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
+  const [reservations, setReservations] = useState<ApiReservation[]>([]);
+  const [filteredReservations, setFilteredReservations] = useState<ApiReservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -84,7 +66,7 @@ export default function ReservationsPage() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (r) =>
-          r.reference.toLowerCase().includes(query) ||
+          r.reference?.toLowerCase().includes(query) ||
           r.passengers?.some((p) => p.name?.toLowerCase().includes(query))
       );
     }
@@ -99,7 +81,7 @@ export default function ReservationsPage() {
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
-      await api.updateReservation(id, { status: newStatus });
+      await api.updateReservation(id, { status: newStatus as 'pending' | 'confirmed' | 'cancelled' | 'completed' });
       toast({
         title: 'Estado actualizado',
         description: 'El estado de la reserva se ha actualizado correctamente',
@@ -140,7 +122,7 @@ export default function ReservationsPage() {
       },
     };
 
-    const config = statusConfig[status] || statusConfig.pending;
+    const config = (statusConfig[status] || statusConfig['pending'])!;
     const Icon = config.icon;
 
     return (
@@ -157,7 +139,7 @@ export default function ReservationsPage() {
     const cancelled = reservations.filter((r) => r.status === 'cancelled').length;
     const totalRevenue = reservations
       .filter((r) => r.status === 'confirmed')
-      .reduce((sum, r) => sum + r.total, 0);
+      .reduce((sum, r) => sum + r.totalPrice, 0);
 
     return { confirmed, pending, cancelled, totalRevenue };
   };
@@ -309,7 +291,7 @@ export default function ReservationsPage() {
                       </TableCell>
                       <TableCell>{reservation.passengers?.length || 0}</TableCell>
                       <TableCell className="font-semibold">
-                        {formatCurrency(reservation.total)}
+                        {formatCurrency(reservation.totalPrice)}
                       </TableCell>
                       <TableCell>{getStatusBadge(reservation.status)}</TableCell>
                       <TableCell className="text-right">

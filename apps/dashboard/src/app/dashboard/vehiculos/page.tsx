@@ -30,37 +30,26 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
-import api from '@/lib/api';
+import api, { type Vehicle as ApiVehicle } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-
-interface Vehicle {
-  id: string;
-  licensePlate: string;
-  brand: string;
-  model: string;
-  capacity: number;
-  type: string;
-  status: 'active' | 'inactive' | 'maintenance';
-  year?: number;
-}
 
 interface VehicleFormData {
   licensePlate: string;
   brand: string;
   model: string;
   capacity: number;
-  type: string;
+  type?: string;
   status: string;
   year?: number;
 }
 
 export default function VehiclesPage() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
+  const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
+  const [filteredVehicles, setFilteredVehicles] = useState<ApiVehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [editingVehicle, setEditingVehicle] = useState<ApiVehicle | null>(null);
   const [formData, setFormData] = useState<VehicleFormData>({
     licensePlate: '',
     brand: '',
@@ -112,7 +101,7 @@ export default function VehiclesPage() {
     setFilteredVehicles(filtered);
   };
 
-  const handleOpenDialog = (vehicle?: Vehicle) => {
+  const handleOpenDialog = (vehicle?: ApiVehicle) => {
     if (vehicle) {
       setEditingVehicle(vehicle);
       setFormData({
@@ -149,13 +138,13 @@ export default function VehiclesPage() {
 
     try {
       if (editingVehicle) {
-        await api.updateVehicle(editingVehicle.id, formData);
+        await api.updateVehicle(editingVehicle.id, formData as any);
         toast({
           title: 'Vehículo actualizado',
           description: 'El vehículo se ha actualizado correctamente',
         });
       } else {
-        await api.createVehicle(formData);
+        await api.createVehicle(formData as any);
         toast({
           title: 'Vehículo creado',
           description: 'El vehículo se ha creado correctamente',
@@ -201,7 +190,7 @@ export default function VehiclesPage() {
       maintenance: { label: 'Mantenimiento', variant: 'outline' },
     };
 
-    const config = statusConfig[status] || statusConfig.active;
+    const config = (statusConfig[status] || statusConfig['active'])!;
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 

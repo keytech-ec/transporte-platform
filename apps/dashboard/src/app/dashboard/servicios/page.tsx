@@ -30,40 +30,28 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Search, MapPin } from 'lucide-react';
-import api from '@/lib/api';
+import api, { type Service as ApiService } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-
-interface Service {
-  id: string;
-  name: string;
-  origin: string;
-  destination: string;
-  basePrice: number;
-  duration: number;
-  type: 'direct' | 'with_stops';
-  status: 'active' | 'inactive';
-  description?: string;
-}
 
 interface ServiceFormData {
   name: string;
-  origin: string;
-  destination: string;
+  origin?: string;
+  destination?: string;
   basePrice: number;
-  duration: number;
+  duration?: number;
   type: string;
   status: string;
   description?: string;
 }
 
 export default function ServicesPage() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [filteredServices, setFilteredServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<ApiService[]>([]);
+  const [filteredServices, setFilteredServices] = useState<ApiService[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [editingService, setEditingService] = useState<ApiService | null>(null);
   const [formData, setFormData] = useState<ServiceFormData>({
     name: '',
     origin: '',
@@ -109,8 +97,8 @@ export default function ServicesPage() {
       filtered = filtered.filter(
         (s) =>
           s.name.toLowerCase().includes(query) ||
-          s.origin.toLowerCase().includes(query) ||
-          s.destination.toLowerCase().includes(query)
+          s.origin?.toLowerCase().includes(query) ||
+          s.destination?.toLowerCase().includes(query)
       );
     }
 
@@ -122,7 +110,7 @@ export default function ServicesPage() {
     setFilteredServices(filtered);
   };
 
-  const handleOpenDialog = (service?: Service) => {
+  const handleOpenDialog = (service?: ApiService) => {
     if (service) {
       setEditingService(service);
       setFormData({
@@ -161,13 +149,13 @@ export default function ServicesPage() {
 
     try {
       if (editingService) {
-        await api.updateService(editingService.id, formData);
+        await api.updateService(editingService.id, formData as any);
         toast({
           title: 'Servicio actualizado',
           description: 'El servicio se ha actualizado correctamente',
         });
       } else {
-        await api.createService(formData);
+        await api.createService(formData as any);
         toast({
           title: 'Servicio creado',
           description: 'El servicio se ha creado correctamente',
@@ -213,7 +201,8 @@ export default function ServicesPage() {
     }).format(amount);
   };
 
-  const formatDuration = (minutes: number) => {
+  const formatDuration = (minutes?: number) => {
+    if (!minutes) return 'N/A';
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;

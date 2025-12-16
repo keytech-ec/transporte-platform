@@ -27,7 +27,9 @@ export interface Vehicle {
   model: string;
   brand: string;
   capacity: number;
-  status: 'available' | 'in_service' | 'maintenance';
+  type?: string; // Vehicle type (e.g., bus, van, etc.)
+  year?: number; // Year of manufacture
+  status: 'available' | 'in_service' | 'maintenance' | 'active' | 'inactive';
   createdAt: string;
   updatedAt: string;
 }
@@ -46,8 +48,11 @@ export interface Service {
   id: string;
   name: string;
   description?: string;
+  origin?: string;
+  destination?: string;
   basePrice: number;
-  type: 'regular' | 'express' | 'vip';
+  duration?: number; // Duration in minutes
+  type: 'regular' | 'express' | 'vip' | 'direct' | 'with_stops';
   status: 'active' | 'inactive';
   createdAt: string;
   updatedAt: string;
@@ -70,6 +75,7 @@ export interface Trip {
   driverId?: string;
   origin: string;
   destination: string;
+  date: string;
   departureTime: string;
   arrivalTime: string;
   price: number;
@@ -110,6 +116,8 @@ export interface Seat {
   id: string;
   tripId: string;
   seatNumber: string;
+  row: number;
+  column: number;
   status: 'available' | 'reserved' | 'occupied';
   reservationId?: string;
 }
@@ -126,6 +134,9 @@ export interface Reservation {
   passengerName: string;
   passengerEmail: string;
   passengerPhone: string;
+  bookingReference?: string;
+  reference?: string; // Alias for bookingReference for backwards compatibility
+  passengers?: any[]; // Array of passenger data
   createdAt: string;
   updatedAt: string;
   trip?: Trip;
@@ -168,6 +179,56 @@ export interface ReservationsChartData {
     averageReservationsPerDay: number;
     averageRevenuePerDay: number;
   };
+}
+
+export interface CreateManualSaleData {
+  tripId: string;
+  seatIds: string[];
+  contact: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string;
+  };
+  payment: {
+    saleChannel: 'POS_CASH' | 'POS_TRANSFER' | 'POS_CARD';
+    paymentMethod: 'CASH' | 'BANK_TRANSFER' | 'CREDIT_CARD' | 'DEBIT_CARD';
+    amountPaid: number;
+  };
+  notes?: string;
+}
+
+export interface ManualSaleResult {
+  reservation: Reservation;
+  bookingReference: string;
+  passengerFormToken: string;
+  passengerFormUrl: string;
+}
+
+export interface MySale {
+  id: string;
+  bookingReference: string;
+  tripInfo: {
+    id: string;
+    origin: string;
+    destination: string;
+    serviceName: string;
+    departureDate: string;
+    departureTime: string;
+  };
+  contact: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string | null;
+  };
+  seatCount: number;
+  seatNumbers: string[];
+  totalAmount: number;
+  saleChannel: string;
+  paymentMethod: string;
+  passengerFormCompleted: boolean;
+  createdAt: string;
 }
 
 export interface ApiError {
@@ -379,6 +440,11 @@ class ApiClient {
     return response.data;
   }
 
+  async updateReservation(id: string, data: Partial<Reservation>): Promise<Reservation> {
+    const response = await this.client.patch<Reservation>(`/reservations/${id}`, data);
+    return response.data;
+  }
+
   async cancelReservation(id: string): Promise<Reservation> {
     const response = await this.client.post<Reservation>(`/reservations/${id}/cancel`);
     return response.data;
@@ -394,6 +460,24 @@ class ApiClient {
     const response = await this.client.get<ReservationsChartData>('/dashboard/reservations-chart', {
       params: { days },
     });
+    return response.data;
+  }
+
+  // Sales
+  async createManualSale(data: CreateManualSaleData): Promise<ManualSaleResult> {
+    const response = await this.client.post<ManualSaleResult>('/sales/create', data);
+    return response.data;
+  }
+
+  async getMySales(params?: { from?: string; to?: string; tripId?: string }): Promise<MySale[]> {
+    const response = await this.client.get<MySale[]>('/sales/my-sales', { params });
+    return response.data;
+  }
+
+  async resendPassengerForm(reservationId: string): Promise<{ message: string; passengerFormUrl: string }> {
+    const response = await this.client.post<{ message: string; passengerFormUrl: string }>(
+      `/sales/${reservationId}/resend-form`
+    );
     return response.data;
   }
 }

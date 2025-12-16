@@ -21,16 +21,9 @@ import {
   CheckCircle,
   XCircle,
 } from 'lucide-react';
-import api from '@/lib/api';
+import api, { type DashboardStats } from '@/lib/api';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-
-interface DashboardStats {
-  todayReservations: number;
-  monthlyRevenue: number;
-  averageOccupancy: number;
-  upcomingTrips: number;
-}
 
 interface ReservationItem {
   id: string;
@@ -156,7 +149,7 @@ export default function DashboardPage() {
       },
     };
 
-    const config = statusConfig[status] || statusConfig.pending;
+    const config = (statusConfig[status] || statusConfig['pending'])!;
     const Icon = config.icon;
 
     return (
@@ -201,54 +194,54 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Reservas Hoy</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Reservas</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.todayReservations || 0}</div>
+            <div className="text-2xl font-bold">{stats?.totalReservations || 0}</div>
             <p className="text-xs text-muted-foreground">
-              +12% desde ayer
+              {stats?.reservationsGrowth ? `+${stats.reservationsGrowth}%` : '+0%'} desde el último periodo
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ingresos del Mes</CardTitle>
+            <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(stats?.monthlyRevenue || 0)}
+              {formatCurrency(stats?.totalRevenue || 0)}
             </div>
             <p className="text-xs text-muted-foreground">
-              +18% desde el mes pasado
+              {stats?.revenueGrowth ? `+${stats.revenueGrowth}%` : '+0%'} desde el último periodo
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ocupación Promedio</CardTitle>
+            <CardTitle className="text-sm font-medium">Viajes Activos</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.averageOccupancy || 0}%</div>
+            <div className="text-2xl font-bold">{stats?.activeTrips || 0}</div>
             <p className="text-xs text-muted-foreground">
-              +5% desde la semana pasada
+              Viajes en curso
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Próximos Viajes</CardTitle>
+            <CardTitle className="text-sm font-medium">Vehículos Disponibles</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.upcomingTrips || 0}</div>
+            <div className="text-2xl font-bold">{stats?.availableVehicles || 0}</div>
             <p className="text-xs text-muted-foreground">
-              En las próximas 24 horas
+              Listos para operar
             </p>
           </CardContent>
         </Card>

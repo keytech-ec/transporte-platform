@@ -34,7 +34,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Plus, Pencil, Trash2, Calendar as CalendarIcon, List, Clock } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, parseISO, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface Trip {
@@ -69,7 +69,6 @@ export default function TripsPage() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [formData, setFormData] = useState<TripFormData>({
@@ -141,13 +140,6 @@ export default function TripsPage() {
     setFilteredTrips(filtered);
   };
 
-  const getTripsForDate = (date: Date) => {
-    return trips.filter((trip) => {
-      const tripDate = parseISO(trip.date);
-      return isSameDay(tripDate, date);
-    });
-  };
-
   const handleOpenDialog = (trip?: Trip) => {
     if (trip) {
       setEditingTrip(trip);
@@ -183,13 +175,13 @@ export default function TripsPage() {
 
     try {
       if (editingTrip) {
-        await api.updateTrip(editingTrip.id, formData);
+        await api.updateTrip(editingTrip.id, formData as any);
         toast({
           title: 'Viaje actualizado',
           description: 'El viaje se ha actualizado correctamente',
         });
       } else {
-        await api.createTrip(formData);
+        await api.createTrip(formData as any);
         toast({
           title: 'Viaje creado',
           description: 'El viaje se ha creado correctamente',
@@ -243,7 +235,7 @@ export default function TripsPage() {
       cancelled: { label: 'Cancelado', variant: 'destructive' },
     };
 
-    const config = statusConfig[status] || statusConfig.scheduled;
+    const config = (statusConfig[status] || statusConfig['scheduled'])!;
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 

@@ -9,6 +9,8 @@ import {
   Route,
   Calendar,
   ClipboardList,
+  ShoppingCart,
+  DollarSign,
   LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -40,6 +42,16 @@ const navItems = [
     title: 'Reservas',
     href: '/dashboard/reservas',
     icon: ClipboardList,
+  },
+  {
+    title: 'Punto de Venta',
+    href: '/dashboard/punto-de-venta',
+    icon: ShoppingCart,
+  },
+  {
+    title: 'Mis Ventas',
+    href: '/dashboard/mis-ventas',
+    icon: DollarSign,
   },
 ];
 
