@@ -1,32 +1,99 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 
 @Injectable()
 export class TripsService {
-  create(_createTripDto: CreateTripDto) {
-    // TODO: Implement create logic
-    return { message: 'Create trip - to be implemented' };
+  constructor(private prisma: PrismaService) {}
+
+  async create(createTripDto: CreateTripDto) {
+    const trip = await this.prisma.scheduledTrip.create({
+      data: {
+        ...createTripDto,
+      },
+      include: {
+        service: true,
+        vehicle: true,
+      },
+    });
+
+    // Convert Decimal fields to numbers
+    return {
+      ...trip,
+      pricePerSeat: trip.pricePerSeat.toNumber(),
+    };
   }
 
-  findAll() {
-    // TODO: Implement findAll logic
-    return { message: 'Find all trips - to be implemented' };
+  async findAll() {
+    const trips = await this.prisma.scheduledTrip.findMany({
+      include: {
+        service: true,
+        vehicle: true,
+      },
+      orderBy: {
+        departureDate: 'desc',
+      },
+    });
+
+    // Convert Decimal fields to numbers
+    return trips.map(trip => ({
+      ...trip,
+      pricePerSeat: trip.pricePerSeat.toNumber(),
+    }));
   }
 
-  findOne(id: string) {
-    // TODO: Implement findOne logic
-    return { message: 'Find one trip - to be implemented', id };
+  async findOne(id: string) {
+    const trip = await this.prisma.scheduledTrip.findUnique({
+      where: { id },
+      include: {
+        service: true,
+        vehicle: true,
+      },
+    });
+
+    if (!trip) {
+      throw new NotFoundException(`Trip with ID ${id} not found`);
+    }
+
+    // Convert Decimal fields to numbers
+    return {
+      ...trip,
+      pricePerSeat: trip.pricePerSeat.toNumber(),
+    };
   }
 
-  update(id: string, _updateTripDto: UpdateTripDto) {
-    // TODO: Implement update logic
-    return { message: 'Update trip - to be implemented', id };
+  async update(id: string, updateTripDto: UpdateTripDto) {
+    // Check if trip exists
+    await this.findOne(id);
+
+    const trip = await this.prisma.scheduledTrip.update({
+      where: { id },
+      data: {
+        ...updateTripDto,
+      },
+      include: {
+        service: true,
+        vehicle: true,
+      },
+    });
+
+    // Convert Decimal fields to numbers
+    return {
+      ...trip,
+      pricePerSeat: trip.pricePerSeat.toNumber(),
+    };
   }
 
-  remove(id: string) {
-    // TODO: Implement remove logic
-    return { message: 'Remove trip - to be implemented', id };
+  async remove(id: string) {
+    // Check if trip exists
+    await this.findOne(id);
+
+    await this.prisma.scheduledTrip.delete({
+      where: { id },
+    });
+
+    return { message: 'Trip deleted successfully' };
   }
 }
 

@@ -1,32 +1,99 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 
 @Injectable()
 export class ServicesService {
-  create(_createServiceDto: CreateServiceDto) {
-    // TODO: Implement create logic
-    return { message: 'Create service - to be implemented' };
+  constructor(private prisma: PrismaService) {}
+
+  async create(createServiceDto: CreateServiceDto) {
+    const service = await this.prisma.service.create({
+      data: {
+        ...createServiceDto,
+      },
+      include: {
+        provider: true,
+        serviceType: true,
+      },
+    });
+
+    // Convert Decimal fields to numbers
+    return {
+      ...service,
+      basePrice: service.basePrice.toNumber(),
+    };
   }
 
-  findAll() {
-    // TODO: Implement findAll logic
-    return { message: 'Find all services - to be implemented' };
+  async findAll() {
+    const services = await this.prisma.service.findMany({
+      include: {
+        provider: true,
+        serviceType: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Convert Decimal fields to numbers
+    return services.map(service => ({
+      ...service,
+      basePrice: service.basePrice.toNumber(),
+    }));
   }
 
-  findOne(id: string) {
-    // TODO: Implement findOne logic
-    return { message: 'Find one service - to be implemented', id };
+  async findOne(id: string) {
+    const service = await this.prisma.service.findUnique({
+      where: { id },
+      include: {
+        provider: true,
+        serviceType: true,
+      },
+    });
+
+    if (!service) {
+      throw new NotFoundException(`Service with ID ${id} not found`);
+    }
+
+    // Convert Decimal fields to numbers
+    return {
+      ...service,
+      basePrice: service.basePrice.toNumber(),
+    };
   }
 
-  update(id: string, _updateServiceDto: UpdateServiceDto) {
-    // TODO: Implement update logic
-    return { message: 'Update service - to be implemented', id };
+  async update(id: string, updateServiceDto: UpdateServiceDto) {
+    // Check if service exists
+    await this.findOne(id);
+
+    const service = await this.prisma.service.update({
+      where: { id },
+      data: {
+        ...updateServiceDto,
+      },
+      include: {
+        provider: true,
+        serviceType: true,
+      },
+    });
+
+    // Convert Decimal fields to numbers
+    return {
+      ...service,
+      basePrice: service.basePrice.toNumber(),
+    };
   }
 
-  remove(id: string) {
-    // TODO: Implement remove logic
-    return { message: 'Remove service - to be implemented', id };
+  async remove(id: string) {
+    // Check if service exists
+    await this.findOne(id);
+
+    await this.prisma.service.delete({
+      where: { id },
+    });
+
+    return { message: 'Service deleted successfully' };
   }
 }
 
