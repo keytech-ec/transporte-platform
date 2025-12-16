@@ -272,7 +272,8 @@ model Reservation {
   id              String   @id @default(uuid())
   tripId          String
   customerId      String
-  
+  soldById        String?  // Usuario vendedor que creó la reserva
+
   bookingReference String  @unique @db.VarChar(10)
   reservationType ReservationType
   numPassengers   Int
@@ -281,20 +282,30 @@ model Reservation {
   total           Decimal  @db.Decimal(10,2)
   status          ReservationStatus @default(PENDING)
   channel         BookingChannel @default(WEB)
-  
+  saleChannel     SaleChannel @default(ONLINE)
+
+  // Campos para formulario de pasajeros
+  passengerFormToken        String?   @unique @db.VarChar(50)
+  passengerFormExpiresAt    DateTime?
+  passengerFormCompletedAt  DateTime?
+  notes                     String?   @db.Text
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   trip            ScheduledTrip @relation(fields: [tripId], references: [id], onDelete: Restrict)
   customer        Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  soldBy          User? @relation(fields: [soldById], references: [id], onDelete: SetNull)
   passengers      Passenger[]
   reservationSeats ReservationSeat[]
   transactions    Transaction[]
 
   @@index([tripId])
   @@index([customerId])
+  @@index([soldById])
   @@index([status, createdAt])
   @@index([bookingReference])
+  @@index([passengerFormToken])
   @@map("reservations")
 }
 
@@ -321,6 +332,14 @@ enum BookingChannel {
   DASHBOARD
 }
 
+enum SaleChannel {
+  ONLINE
+  POS_CASH
+  POS_TRANSFER
+  POS_CARD
+  PHONE
+}
+
 // ============================================
 // 10. PASSENGER - Pasajeros de cada reserva
 // ============================================
@@ -328,12 +347,13 @@ enum BookingChannel {
 model Passenger {
   id              String   @id @default(uuid())
   reservationId   String
-  
+
+  documentType    DocumentType @default(CEDULA)
   documentNumber  String   @db.VarChar(20)
   firstName       String   @db.VarChar(100)
   lastName        String   @db.VarChar(100)
   passengerType   PassengerType @default(ADULT)
-  
+
   reservation     Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   reservationSeat ReservationSeat?
 
@@ -376,21 +396,27 @@ model Transaction {
   id              String   @id @default(uuid())
   reservationId   String
   providerId      String
-  
+  receivedBy      String?  // Usuario que recibió el pago (para POS)
+
   amount          Decimal  @db.Decimal(10,2)
   commission      Decimal  @db.Decimal(10,2)
   providerAmount  Decimal  @db.Decimal(10,2)
   gateway         PaymentGateway
+  paymentMethod   PaymentMethod?
   status          TransactionStatus @default(PENDING)
-  
+  isPartialPayment Boolean @default(false)
+  receiptNumber   String?  @db.VarChar(50)
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   reservation     Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
   provider        Provider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  receivedByUser  User? @relation(fields: [receivedBy], references: [id], onDelete: SetNull)
 
   @@index([reservationId])
   @@index([providerId, status])
+  @@index([receivedBy])
   @@map("transactions")
 }
 
@@ -399,6 +425,15 @@ enum PaymentGateway {
   PAYPHONE
   CASH
   TRANSFER
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CREDIT_CARD
+  DEBIT_CARD
+  DEUNA
+  PAYPHONE
 }
 
 enum TransactionStatus {
@@ -417,16 +452,22 @@ enum TransactionStatus {
 model User {
   id              String   @id @default(uuid())
   providerId      String?  // Null = admin de plataforma
-  
+
   email           String   @unique
   passwordHash    String
   role            UserRole @default(OPERATOR)
   status          UserStatus @default(ACTIVE)
-  
+
+  // Estadísticas de ventas
+  salesCount      Int      @default(0)
+  totalSalesAmount Decimal @default(0) @db.Decimal(12,2)
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   provider        Provider? @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  soldReservations Reservation[]
+  receivedTransactions Transaction[]
 
   @@index([providerId])
   @@map("users")
