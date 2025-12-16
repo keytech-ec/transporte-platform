@@ -4,6 +4,17 @@ Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
 
 ## Actualizaciones Recientes
 
+### Diciembre 2025 - Implementación Completa de CRUD Backend y Corrección de Dashboard
+- ✅ **Backend API CRUD Completo**: Implementación de operaciones CRUD completas usando Prisma para módulos principales
+  - **Vehículos**: CRUD completo con validaciones, ordenamiento por fecha de creación, error handling con NotFoundException
+  - **Servicios**: CRUD completo con relaciones (provider, serviceType), conversión automática de Decimal a número, ordenamiento
+  - **Viajes**: CRUD completo con relaciones (service, vehicle), conversión de pricePerSeat Decimal, ordenamiento por fecha de salida
+  - **Dashboard API**: Endpoints `/stats` y `/reservations-chart` para métricas en tiempo real y visualización de datos
+- ✅ **Corrección de errores en Dashboard**: Solucionado error "filteredVehicles.map is not a function" causado por endpoints que retornaban mensajes en lugar de arrays
+- ✅ **Conversión automática de tipos Prisma**: Todos los campos Decimal (basePrice, pricePerSeat) se convierten automáticamente a números para compatibilidad con frontend
+- ✅ **Hydration fix en autenticación**: Corregido loop de redirección en login del dashboard causado por verificación prematura del estado de autenticación antes de la hidratación de Zustand desde localStorage
+- ✅ **API Response Unwrapping**: Interceptor de Axios automáticamente desempaqueta respuestas del backend `{success: true, data: {...}}` para simplificar uso en frontend
+
 ### Diciembre 2025 - Dashboard Administrativo Completo
 - ✅ **Dashboard administrativo completamente funcional**: Aplicación Next.js 14 independiente para gestión de la plataforma
 - ✅ **Autenticación JWT integrada**: Login con email/contraseña, protección de rutas, persistencia de sesión con Zustand
@@ -375,26 +386,49 @@ APP_URL=http://localhost:3000
 - `PUT /api/providers/:id` - Actualizar proveedor
 - `DELETE /api/providers/:id` - Eliminar proveedor
 
-#### 3. Vehicles (`/api/vehicles`)
+#### 3. Vehicles (`/api/vehicles`) ✅ **COMPLETAMENTE IMPLEMENTADO**
 - `GET /api/vehicles` - Listar todos los vehículos
+  - Retorna array de vehículos ordenados por fecha de creación (más recientes primero)
+  - No requiere autenticación (público para dashboard)
 - `GET /api/vehicles/:id` - Obtener vehículo por ID
-- `POST /api/vehicles` - Crear vehículo
-- `PUT /api/vehicles/:id` - Actualizar vehículo
-- `DELETE /api/vehicles/:id` - Eliminar vehículo
+  - Retorna 404 si no existe
+- `POST /api/vehicles` - Crear vehículo (autenticado)
+  - Requiere: providerId, plate, brand, model, year, totalSeats, type
+  - Opcionales: seatLayout, amenities
+- `PUT /api/vehicles/:id` - Actualizar vehículo (autenticado)
+  - Valida existencia antes de actualizar
+- `DELETE /api/vehicles/:id` - Eliminar vehículo (autenticado)
+  - Valida existencia antes de eliminar
 
-#### 4. Services (`/api/services`)
+#### 4. Services (`/api/services`) ✅ **COMPLETAMENTE IMPLEMENTADO**
 - `GET /api/services` - Listar todos los servicios/rutas
+  - Incluye relaciones: provider, serviceType
+  - Convierte basePrice (Decimal) a número para frontend
+  - Ordenados por fecha de creación (más recientes primero)
 - `GET /api/services/:id` - Obtener servicio por ID
-- `POST /api/services` - Crear servicio
-- `PUT /api/services/:id` - Actualizar servicio
-- `DELETE /api/services/:id` - Eliminar servicio
+  - Incluye relaciones completas
+  - Retorna 404 si no existe
+- `POST /api/services` - Crear servicio (autenticado)
+  - Requiere: providerId, serviceTypeId, origin, destination, name, basePrice, duration
+- `PUT /api/services/:id` - Actualizar servicio (autenticado)
+  - Valida existencia antes de actualizar
+- `DELETE /api/services/:id` - Eliminar servicio (autenticado)
+  - Valida existencia antes de eliminar
 
-#### 5. Trips (`/api/trips`)
+#### 5. Trips (`/api/trips`) ✅ **COMPLETAMENTE IMPLEMENTADO**
 - `GET /api/trips` - Listar todos los viajes programados
+  - Incluye relaciones: service, vehicle
+  - Convierte pricePerSeat (Decimal) a número para frontend
+  - Ordenados por fecha de salida (más recientes primero)
 - `GET /api/trips/:id` - Obtener viaje por ID
-- `POST /api/trips` - Crear viaje programado
-- `PUT /api/trips/:id` - Actualizar viaje
-- `DELETE /api/trips/:id` - Eliminar viaje
+  - Incluye relaciones completas
+  - Retorna 404 si no existe
+- `POST /api/trips` - Crear viaje programado (autenticado)
+  - Requiere: serviceId, vehicleId, departureDate, departureTime, totalSeats, pricePerSeat, bookingMode
+- `PUT /api/trips/:id` - Actualizar viaje (autenticado)
+  - Valida existencia antes de actualizar
+- `DELETE /api/trips/:id` - Eliminar viaje (autenticado)
+  - Valida existencia antes de eliminar
 
 #### 6. Reservations (`/api/reservations`) ✅ **COMPLETAMENTE IMPLEMENTADO**
 - `GET /api/reservations/trips/search` - Buscar viajes disponibles
@@ -607,6 +641,24 @@ export class ProvidersController {
   - Guards, decoradores y estrategias JWT/Local
   - Validación de roles y protección de rutas
 
+- ✅ **Módulo de Vehículos**: Completamente implementado
+  - CRUD completo con Prisma (findAll, findOne, create, update, delete)
+  - Validación de existencia antes de operaciones
+  - Error handling con NotFoundException
+  - Ordenamiento por fecha de creación
+
+- ✅ **Módulo de Servicios**: Completamente implementado
+  - CRUD completo con Prisma
+  - Incluye relaciones con provider y serviceType
+  - Conversión automática de Decimal (basePrice) a número
+  - Ordenamiento por fecha de creación
+
+- ✅ **Módulo de Viajes**: Completamente implementado
+  - CRUD completo con Prisma
+  - Incluye relaciones con service y vehicle
+  - Conversión automática de Decimal (pricePerSeat) a número
+  - Ordenamiento por fecha de salida
+
 - ✅ **Módulo de Reservas**: Completamente implementado
   - Búsqueda de viajes disponibles con filtros
   - Visualización de mapa de asientos con estados
@@ -628,8 +680,16 @@ export class ProvidersController {
   - Sistema de reembolsos (solo SUPER_ADMIN o PROVIDER_ADMIN)
   - Modo mock para desarrollo (si no hay credenciales configuradas)
   - Manejo completo de estados de transacciones (PENDING, PROCESSING, COMPLETED, FAILED, REFUNDED)
-  
-- ⏳ **Otros módulos**: Estructura base completa (controllers, services, DTOs), pero la lógica de negocio está marcada con `TODO` y debe ser implementada. Cada servicio tiene métodos placeholder que deben ser completados usando `PrismaService`.
+
+- ✅ **Módulo de Dashboard**: Completamente implementado
+  - Endpoint `/api/dashboard/stats` para métricas en tiempo real
+  - Endpoint `/api/dashboard/reservations-chart` para datos de gráficos
+  - Cálculo de reservas del día, ingresos mensuales, ocupación promedio
+  - Integrado con el dashboard administrativo de Next.js
+
+- ⏳ **Otros módulos**: Estructura base completa (controllers, services, DTOs), pendientes de implementación:
+  - **Providers**: CRUD pendiente (crear, actualizar, eliminar proveedores)
+  - **Customers**: CRUD pendiente (gestión de clientes)
 
 ### Próximos Pasos de Desarrollo
 
@@ -637,12 +697,13 @@ export class ProvidersController {
 2. ✅ ~~Implementar guards de autorización por roles~~ **COMPLETADO**
 3. ✅ ~~Implementar módulo de reservas completo (búsqueda, bloqueo, creación, confirmación, cancelación)~~ **COMPLETADO**
 4. ✅ ~~Implementar integración con gateways de pago (DeUNA, Payphone)~~ **COMPLETADO**
-5. Implementar CRUD completo en otros módulos usando `PrismaService`
-   - Providers: CRUD completo con validaciones
-   - Vehicles: CRUD completo con validaciones
-   - Services: CRUD completo con validaciones
-   - Trips: CRUD completo con validaciones
-   - Customers: CRUD completo con validaciones
+5. ✅ ~~Implementar CRUD completo en módulos principales usando `PrismaService`~~ **COMPLETADO**
+   - ✅ Vehicles: CRUD completo con validaciones
+   - ✅ Services: CRUD completo con validaciones y relaciones
+   - ✅ Trips: CRUD completo con validaciones y relaciones
+   - ✅ Dashboard: Endpoints de métricas y analytics
+   - ⏳ Providers: CRUD pendiente (crear, actualizar, eliminar)
+   - ⏳ Customers: CRUD pendiente (gestión completa)
 6. Agregar validaciones de negocio y reglas de autorización específicas por módulo
    - Validar que los usuarios solo puedan acceder a recursos de su provider (excepto SUPER_ADMIN)
    - Agregar validaciones de negocio específicas por módulo
