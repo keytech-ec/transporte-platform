@@ -70,24 +70,24 @@ export function Footer() {
             <h4 className="text-white font-semibold mb-4">Soporte</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="#" className="hover:text-transporte-blue-400 transition-colors">
+                <Link href="/preguntas-frecuentes" className="hover:text-transporte-blue-400 transition-colors">
                   Preguntas Frecuentes
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:text-transporte-blue-400 transition-colors">
+                <Link href="/terminos" className="hover:text-transporte-blue-400 transition-colors">
                   Términos y Condiciones
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:text-transporte-blue-400 transition-colors">
+                <Link href="/privacidad" className="hover:text-transporte-blue-400 transition-colors">
                   Política de Privacidad
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:text-transporte-blue-400 transition-colors">
+                <Link href="/politica-reembolsos" className="hover:text-transporte-blue-400 transition-colors">
                   Política de Reembolsos
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

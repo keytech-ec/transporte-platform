@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CalendarIcon, MapPin, Search, SlidersHorizontal, Wifi, Wind, Droplet, Tv } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 import { format, parseISO, startOfDay } from 'date-fns';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +45,7 @@ export default function BuscarPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { setPassengerCount } = useBookingStore();
+  const urlSearchParams = useSearchParams();
   const [searchParams, setSearchParams] = useState<SearchTripsInput | null>(
     null
   );
@@ -52,6 +55,7 @@ export default function BuscarPage() {
   const [timeFilters, setTimeFilters] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [vehicleTypes, setVehicleTypes] = useState<string[]>([]);
+  const [amenityFilters, setAmenityFilters] = useState<string[]>([]);
 
   const form = useForm<SearchTripsInput>({
     resolver: zodResolver(searchTripsSchema),
@@ -62,6 +66,33 @@ export default function BuscarPage() {
       passengers: 1,
     },
   });
+
+  // Pre-load search from URL parameters
+  useEffect(() => {
+    const origin = urlSearchParams.get('origin');
+    const destination = urlSearchParams.get('destination');
+    const date = urlSearchParams.get('date');
+    const passengers = urlSearchParams.get('passengers');
+
+    if (origin && destination) {
+      const searchData: SearchTripsInput = {
+        origin,
+        destination,
+        date: date || format(new Date(), 'yyyy-MM-dd'),
+        passengers: passengers ? parseInt(passengers) : 1,
+      };
+
+      // Set form values
+      form.setValue('origin', searchData.origin);
+      form.setValue('destination', searchData.destination);
+      form.setValue('date', searchData.date);
+      form.setValue('passengers', searchData.passengers);
+
+      // Execute search
+      setSearchParams(searchData);
+      setPassengerCount(searchData.passengers);
+    }
+  }, [urlSearchParams, form, setPassengerCount]);
 
   const { data: trips, isLoading } = useQuery({
     queryKey: ['search-trips', searchParams],
@@ -118,9 +149,20 @@ export default function BuscarPage() {
         }
       }
 
+      // Amenities filter
+      if (amenityFilters.length > 0) {
+        const amenities = trip.vehicle?.amenities || {};
+        const hasAllAmenities = amenityFilters.every((amenity) => {
+          return amenities[amenity] === true;
+        });
+        if (!hasAllAmenities) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [trips, timeFilters, priceRange, vehicleTypes]);
+  }, [trips, timeFilters, priceRange, vehicleTypes, amenityFilters]);
 
   // Calculate price range from available trips
   const availablePriceRange = useMemo(() => {
@@ -176,10 +218,19 @@ export default function BuscarPage() {
     );
   };
 
+  const toggleAmenityFilter = (value: string) => {
+    setAmenityFilters((prev) =>
+      prev.includes(value)
+        ? prev.filter((v) => v !== value)
+        : [...prev, value]
+    );
+  };
+
   const clearFilters = () => {
     setTimeFilters([]);
     setPriceRange([availablePriceRange.min, availablePriceRange.max]);
     setVehicleTypes([]);
+    setAmenityFilters([]);
   };
 
   return (
@@ -387,34 +438,22 @@ export default function BuscarPage() {
                     <AccordionItem value="price">
                       <AccordionTrigger className="text-sm">Precio</AccordionTrigger>
                       <AccordionContent>
-                        <div className="space-y-3">
-                          <div className="flex justify-between text-sm">
-                            <span>${priceRange[0]}</span>
-                            <span>${priceRange[1]}</span>
+                        <div className="space-y-4 pt-2">
+                          <div className="flex justify-between text-sm font-medium">
+                            <span className="text-transporte-blue-600">${priceRange[0]}</span>
+                            <span className="text-transporte-blue-600">${priceRange[1]}</span>
                           </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="min-price" className="text-xs">Mínimo</Label>
-                            <Input
-                              id="min-price"
-                              type="number"
-                              min={availablePriceRange.min}
-                              max={availablePriceRange.max}
-                              value={priceRange[0]}
-                              onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
-                              className="h-8"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="max-price" className="text-xs">Máximo</Label>
-                            <Input
-                              id="max-price"
-                              type="number"
-                              min={availablePriceRange.min}
-                              max={availablePriceRange.max}
-                              value={priceRange[1]}
-                              onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
-                              className="h-8"
-                            />
+                          <Slider
+                            min={availablePriceRange.min}
+                            max={availablePriceRange.max}
+                            step={0.5}
+                            value={priceRange}
+                            onValueChange={(value) => setPriceRange(value as [number, number])}
+                            className="w-full"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>${availablePriceRange.min}</span>
+                            <span>${availablePriceRange.max}</span>
                           </div>
                         </div>
                       </AccordionContent>
@@ -473,6 +512,59 @@ export default function BuscarPage() {
                             />
                             <Label htmlFor="suv" className="text-sm cursor-pointer">
                               SUV
+                            </Label>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Amenities Filter */}
+                    <AccordionItem value="amenities">
+                      <AccordionTrigger className="text-sm">Amenidades</AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="wifi"
+                              checked={amenityFilters.includes('wifi')}
+                              onCheckedChange={() => toggleAmenityFilter('wifi')}
+                            />
+                            <Label htmlFor="wifi" className="text-sm cursor-pointer flex items-center gap-1.5">
+                              <Wifi className="h-3.5 w-3.5 text-blue-500" />
+                              WiFi
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="ac"
+                              checked={amenityFilters.includes('ac')}
+                              onCheckedChange={() => toggleAmenityFilter('ac')}
+                            />
+                            <Label htmlFor="ac" className="text-sm cursor-pointer flex items-center gap-1.5">
+                              <Wind className="h-3.5 w-3.5 text-cyan-500" />
+                              Aire Acondicionado
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="bathroom"
+                              checked={amenityFilters.includes('bathroom')}
+                              onCheckedChange={() => toggleAmenityFilter('bathroom')}
+                            />
+                            <Label htmlFor="bathroom" className="text-sm cursor-pointer flex items-center gap-1.5">
+                              <Droplet className="h-3.5 w-3.5 text-indigo-500" />
+                              Baño
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="tv"
+                              checked={amenityFilters.includes('tv')}
+                              onCheckedChange={() => toggleAmenityFilter('tv')}
+                            />
+                            <Label htmlFor="tv" className="text-sm cursor-pointer flex items-center gap-1.5">
+                              <Tv className="h-3.5 w-3.5 text-purple-500" />
+                              TV
                             </Label>
                           </div>
                         </div>

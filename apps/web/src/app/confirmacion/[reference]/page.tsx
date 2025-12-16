@@ -6,7 +6,7 @@ import { reservationsApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle, Download, Home } from 'lucide-react';
+import { CheckCircle, Download, Home, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { QRCodeSVG } from 'qrcode.react';
@@ -34,6 +34,42 @@ export default function ConfirmacionPage() {
     setTimeout(() => {
       window.print();
     }, 500);
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!reservation) return;
+
+    const res = reservation as any;
+    const trip = res.trip;
+
+    // Format date and time
+    let dateTimeStr = 'Fecha no disponible';
+    try {
+      const dateStr = typeof trip?.departureDate === 'string'
+        ? trip.departureDate.split('T')[0]
+        : trip?.departureDate;
+      const timeStr = typeof trip?.departureTime === 'string'
+        ? trip.departureTime.split('T')[1] || trip.departureTime
+        : trip?.departureTime;
+      dateTimeStr = format(parseISO(`${dateStr}T${timeStr}`), 'PPP p');
+    } catch (e) {
+      // Keep default value
+    }
+
+    const message = `🎫 *Confirmación de Reserva - Transporte Platform*
+
+📍 Ruta: ${trip?.origin || '-'} → ${trip?.destination || '-'}
+📅 Fecha y hora: ${dateTimeStr}
+🎟️ Referencia: *${res.bookingReference}*
+👥 Pasajeros: ${res.numberOfPassengers}
+💰 Total: ${formatCurrency(res.total)}
+
+¡Reserva confirmada! Presenta tu número de referencia al abordar.
+
+_Reservado a través de Transporte Platform_`;
+
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   if (isLoading) {
@@ -153,12 +189,22 @@ export default function ConfirmacionPage() {
           </CardContent>
         </Card>
 
-        <div className="flex gap-4 mt-6">
-          <Button variant="outline" className="flex-1" onClick={handleDownload}>
-            <Download className="mr-2 h-4 w-4" />
-            Descargar comprobante
-          </Button>
-          <Link href="/" className="flex-1">
+        <div className="space-y-3 mt-6">
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" onClick={handleDownload}>
+              <Download className="mr-2 h-4 w-4" />
+              Descargar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleWhatsAppShare}
+              className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Compartir
+            </Button>
+          </div>
+          <Link href="/" className="block">
             <Button className="w-full">
               <Home className="mr-2 h-4 w-4" />
               Volver al inicio
