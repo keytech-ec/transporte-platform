@@ -4,7 +4,7 @@ Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
 
 ## Actualizaciones Recientes
 
-### Diciembre 2025 - Sistema de Punto de Venta (POS) - Fase 1 y 2 Completas
+### Diciembre 2025 - Sistema de Punto de Venta (POS) - Fases 1, 2 y 3 Completas
 - ✅ **Fase 1 - Schema actualizado para ventas manuales**: Base de datos preparada para sistema de punto de venta
   - **Nuevos enums**: `SaleChannel` (ONLINE, POS_CASH, POS_TRANSFER, POS_CARD, PHONE), `PaymentMethod` (CASH, BANK_TRANSFER, CREDIT_CARD, DEBIT_CARD, DEUNA, PAYPHONE)
   - **Reservation**: Campos agregados: `soldById` (vendedor que creó la venta), `saleChannel`, `passengerFormToken` (token único para formulario público), `passengerFormExpiresAt` (72 horas), `passengerFormCompletedAt`, `notes` (notas del vendedor)
@@ -19,7 +19,14 @@ Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
   - **Endpoint POST /api/sales/:reservationId/resend-form**: Reenviar/regenerar link del formulario de pasajeros
   - **Transacciones atómicas**: Toda la creación de venta se hace en una sola transacción de Prisma
   - **Actualización automática**: Estadísticas de vendedor (salesCount, totalSalesAmount) se actualizan automáticamente
-  - **Flujo completo**: Vendedor crea reserva → registra pago → genera link → cliente completa datos de pasajeros
+- ✅ **Fase 3 - Endpoints Públicos para Formulario de Pasajeros**: API pública sin autenticación para clientes
+  - **Endpoint GET /api/public/passenger-form/:token**: Obtener información de la reserva por token (viaje, asientos, contacto, estado)
+  - **Endpoint POST /api/public/passenger-form/:token/complete**: Completar formulario con datos de todos los pasajeros
+  - **Rate limiting**: 10 requests por minuto con @nestjs/throttler para prevenir abuso
+  - **Validaciones completas**: Token válido, no expirado (72h), no completado previamente, cantidad correcta de pasajeros, asientos válidos
+  - **Transacciones atómicas**: Creación de pasajeros y actualización de reserva en una sola transacción
+  - **Seguridad**: Tokens de un solo uso, expiración automática, sin autenticación pero con rate limiting
+  - **Flujo completo**: Vendedor crea reserva → registra pago → genera link → cliente completa datos de pasajeros → sistema valida y guarda
 
 ### Diciembre 2025 - Implementación Completa de CRUD Backend y Corrección de Dashboard
 - ✅ **Backend API CRUD Completo**: Implementación de operaciones CRUD completas usando Prisma para módulos principales
