@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CalendarIcon, MapPin, Search, SlidersHorizontal } from 'lucide-react';
+import { CalendarIcon, MapPin, Search, SlidersHorizontal, Wifi, Wind, Droplet, Tv } from 'lucide-react';
 import { format, parseISO, startOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -536,6 +536,37 @@ export default function BuscarPage() {
                       <p className="text-sm">
                         Asientos disponibles: {trip.availableSeats}
                       </p>
+
+                      {/* Amenities */}
+                      {trip.vehicle?.amenities && (
+                        <div className="flex gap-3 mt-3 flex-wrap">
+                          {(trip.vehicle.amenities as any).wifi && (
+                            <div className="flex items-center gap-1 text-xs text-gray-600 bg-blue-50 px-2 py-1 rounded">
+                              <Wifi className="h-3 w-3" />
+                              <span>WiFi</span>
+                            </div>
+                          )}
+                          {(trip.vehicle.amenities as any).ac && (
+                            <div className="flex items-center gap-1 text-xs text-gray-600 bg-blue-50 px-2 py-1 rounded">
+                              <Wind className="h-3 w-3" />
+                              <span>A/C</span>
+                            </div>
+                          )}
+                          {(trip.vehicle.amenities as any).bathroom && (
+                            <div className="flex items-center gap-1 text-xs text-gray-600 bg-blue-50 px-2 py-1 rounded">
+                              <Droplet className="h-3 w-3" />
+                              <span>Baño</span>
+                            </div>
+                          )}
+                          {(trip.vehicle.amenities as any).tv && (
+                            <div className="flex items-center gap-1 text-xs text-gray-600 bg-blue-50 px-2 py-1 rounded">
+                              <Tv className="h-3 w-3" />
+                              <span>TV</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <p className="text-lg font-bold mt-2">
                         ${trip.pricePerSeat.toFixed(2)} por asiento
                       </p>
