@@ -13,6 +13,8 @@ Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
 - ✅ **Visualización de asignación asiento-pasajero**: Cada formulario de pasajero muestra claramente el asiento asignado, con mapa visual en el resumen de compra
 - ✅ **Cancelación de reservas**: Los usuarios pueden cancelar reservas pendientes o confirmadas desde "Mis Reservas" con diálogo de confirmación, liberación automática de asientos y notificaciones toast
 - ✅ **Página de confirmación mejorada**: Muestra claramente la ruta (origen → destino), asientos asignados a cada pasajero con badges visuales, fecha/hora de salida formateada correctamente, y botón funcional de descarga que permite guardar el comprobante como PDF usando la funcionalidad de impresión del navegador
+- ✅ **Filtros de búsqueda avanzados**: Panel lateral de filtros con acordeón que permite filtrar viajes por horario (mañana, tarde, noche), rango de precio (min-max), y tipo de vehículo (Bus, Minibus, Van, Bus de dos pisos, SUV). Los filtros se aplican en tiempo real y muestran contador de resultados filtrados
+- ✅ **Auto-completado "Soy uno de los pasajeros"**: Checkbox en el checkout que sincroniza automáticamente los datos de contacto del cliente con el primer pasajero. Los cambios en los datos de contacto se reflejan instantáneamente en el primer pasajero cuando el checkbox está marcado. Incluye indicador visual de auto-completado con fondo azul claro
 
 ### Diciembre 2025 - Correcciones de Compatibilidad Frontend-Backend y Timezone
 - ✅ **Conversión de tipos Decimal de Prisma**: Todos los campos Decimal (`pricePerSeat`, `subtotal`, `total`, `commission`, `amount`, etc.) ahora se convierten automáticamente a números JavaScript usando `.toNumber()` antes de ser enviados al frontend

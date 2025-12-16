@@ -20,7 +20,9 @@
       "Bash(timeout 15 cmd:*)",
       "Bash(taskkill //F //PID 17024)",
       "Bash(timeout:*)",
-      "Bash(taskkill //F //PID 26764)"
+      "Bash(taskkill //F //PID 26764)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(taskkill:*)"
     ]
   }
 }

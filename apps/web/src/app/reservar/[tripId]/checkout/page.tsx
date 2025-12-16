@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,15 +29,19 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { selectedTrip, selectedSeats, lockId, passengerCount, setCustomer, setPassengers } =
     useBookingStore();
+  const [iAmPassenger, setIAmPassenger] = useState(false);
 
   const { data: tripData, isLoading: tripLoading } = useQuery({
     queryKey: ['trip', selectedTrip],
@@ -68,6 +73,20 @@ export default function CheckoutPage() {
       reservationType: 'ONE_WAY',
     },
   });
+
+  // Watch customer fields individually for auto-fill
+  const customerDocumentNumber = form.watch('customer.documentNumber');
+  const customerFirstName = form.watch('customer.firstName');
+  const customerLastName = form.watch('customer.lastName');
+
+  // Sync customer data to first passenger when "I am a passenger" is checked
+  useEffect(() => {
+    if (iAmPassenger) {
+      form.setValue('passengers.0.documentNumber', customerDocumentNumber);
+      form.setValue('passengers.0.firstName', customerFirstName);
+      form.setValue('passengers.0.lastName', customerLastName);
+    }
+  }, [iAmPassenger, customerDocumentNumber, customerFirstName, customerLastName, form]);
 
   const createReservationMutation = useMutation({
     mutationFn: (data: ReservationInput) =>
@@ -278,16 +297,39 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                {/* I am a passenger checkbox */}
+                <div className="flex items-center space-x-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <Checkbox
+                    id="iAmPassenger"
+                    checked={iAmPassenger}
+                    onCheckedChange={(checked) => setIAmPassenger(checked as boolean)}
+                  />
+                  <Label
+                    htmlFor="iAmPassenger"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Soy uno de los pasajeros (auto-completar primer pasajero con mis datos)
+                  </Label>
+                </div>
+
                 <div>
                   <h3 className="text-lg font-semibold mb-4">
                     Información de pasajeros
                   </h3>
                   <div className="space-y-4">
                     {form.watch('passengers').map((_: unknown, index: number) => (
-                      <div key={index} className="border p-4 rounded-lg">
+                      <div key={index} className={cn(
+                        "border p-4 rounded-lg",
+                        index === 0 && iAmPassenger && "bg-blue-50 border-blue-300"
+                      )}>
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="font-medium">
                             Pasajero {index + 1}
+                            {index === 0 && iAmPassenger && (
+                              <span className="ml-2 text-xs text-blue-600 font-normal">
+                                (Auto-completado)
+                              </span>
+                            )}
                           </h4>
                           <div className="flex items-center gap-2">
                             <span className="text-sm text-muted-foreground">Asiento:</span>
