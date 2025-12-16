@@ -19,8 +19,10 @@ const {
   ReservationType,
   ReservationStatus,
   BookingChannel,
+  SaleChannel,
   PassengerType,
   PaymentGateway,
+  PaymentMethod,
   TransactionStatus,
   UserRole,
   UserStatus,
@@ -37,8 +39,10 @@ module.exports.DocumentType = DocumentType;
 module.exports.ReservationType = ReservationType;
 module.exports.ReservationStatus = ReservationStatus;
 module.exports.BookingChannel = BookingChannel;
+module.exports.SaleChannel = SaleChannel;
 module.exports.PassengerType = PassengerType;
 module.exports.PaymentGateway = PaymentGateway;
+module.exports.PaymentMethod = PaymentMethod;
 module.exports.TransactionStatus = TransactionStatus;
 module.exports.UserRole = UserRole;
 module.exports.UserStatus = UserStatus;
