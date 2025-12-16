@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { configuration } from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -22,6 +23,12 @@ import { SalesModule } from './modules/sales/sales.module';
       envFilePath: ['.env.local', '.env'],
     }),
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 60 segundos
+        limit: 10, // 10 requests por minuto (default)
+      },
+    ]),
     PrismaModule,
     AuthModule,
     ProvidersModule,

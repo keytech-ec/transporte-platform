@@ -496,6 +496,197 @@ export class SalesService {
     };
   }
 
+  // ============================================
+  // ENDPOINTS PÚBLICOS PARA FORMULARIO DE PASAJEROS
+  // ============================================
+
+  async getPassengerFormByToken(token: string) {
+    const reservation = await this.prisma.reservation.findUnique({
+      where: { passengerFormToken: token },
+      include: {
+        trip: {
+          include: {
+            service: true,
+            vehicle: true,
+          },
+        },
+        customer: true,
+        reservationSeats: {
+          include: {
+            seat: true,
+          },
+        },
+        passengers: {
+          include: {
+            reservationSeat: {
+              include: {
+                seat: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!reservation) {
+      throw new NotFoundException('Token inválido o reserva no encontrada');
+    }
+
+    const isExpired = reservation.passengerFormExpiresAt
+      ? new Date() > reservation.passengerFormExpiresAt
+      : true;
+
+    const isCompleted = !!reservation.passengerFormCompletedAt;
+
+    // Formatear información del viaje
+    const tripInfo = {
+      origin: reservation.trip.service.origin,
+      destination: reservation.trip.service.destination,
+      serviceName: reservation.trip.service.name,
+      departureDate: reservation.trip.departureDate,
+      departureTime: reservation.trip.departureTime,
+      pricePerSeat: reservation.trip.pricePerSeat.toNumber(),
+    };
+
+    // Formatear asientos
+    const seats = reservation.reservationSeats.map((rs) => ({
+      id: rs.seatId,
+      seatNumber: rs.seat.seatNumber,
+      row: rs.seat.row,
+      column: rs.seat.column,
+    }));
+
+    // Formatear pasajeros existentes (si ya hay)
+    const passengersCompleted = reservation.passengers.map((p) => ({
+      id: p.id,
+      documentType: p.documentType,
+      documentNumber: p.documentNumber,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      passengerType: p.passengerType,
+      seatNumber: p.reservationSeat?.seat?.seatNumber || null,
+    }));
+
+    return {
+      bookingReference: reservation.bookingReference,
+      tripInfo,
+      contact: {
+        firstName: reservation.customer.firstName,
+        lastName: reservation.customer.lastName,
+        phone: reservation.customer.phone,
+        email: reservation.customer.email,
+      },
+      seats,
+      passengersRequired: reservation.numPassengers,
+      passengersCompleted,
+      isExpired,
+      isCompleted,
+    };
+  }
+
+  async completePassengerForm(token: string, dto: CompletePassengerFormDto) {
+    // 1. Obtener reserva por token
+    const reservation = await this.prisma.reservation.findUnique({
+      where: { passengerFormToken: token },
+      include: {
+        reservationSeats: {
+          include: {
+            seat: true,
+          },
+        },
+        passengers: true,
+      },
+    });
+
+    if (!reservation) {
+      throw new NotFoundException('Token inválido o reserva no encontrada');
+    }
+
+    // 2. Validar que no haya expirado
+    if (reservation.passengerFormExpiresAt && new Date() > reservation.passengerFormExpiresAt) {
+      throw new BadRequestException('El formulario ha expirado. Contacta al vendedor.');
+    }
+
+    // 3. Validar que no esté completado
+    if (reservation.passengerFormCompletedAt) {
+      throw new BadRequestException('El formulario ya fue completado anteriormente');
+    }
+
+    // 4. Validar cantidad de pasajeros
+    if (dto.passengers.length !== reservation.numPassengers) {
+      throw new BadRequestException(
+        `Se requieren ${reservation.numPassengers} pasajeros, pero se enviaron ${dto.passengers.length}`,
+      );
+    }
+
+    // 5. Validar que los asientos coincidan con los de la reserva
+    const reservedSeatIds = reservation.reservationSeats.map((rs) => rs.seatId);
+    const providedSeatIds = dto.passengers.map((p) => p.seatId);
+
+    const invalidSeats = providedSeatIds.filter((seatId) => !reservedSeatIds.includes(seatId));
+    if (invalidSeats.length > 0) {
+      throw new BadRequestException('Algunos asientos no pertenecen a esta reserva');
+    }
+
+    // 6. Validar que cada asiento tenga solo un pasajero
+    const seatCounts = new Map<string, number>();
+    providedSeatIds.forEach((seatId) => {
+      seatCounts.set(seatId, (seatCounts.get(seatId) || 0) + 1);
+    });
+
+    const duplicateSeats = Array.from(seatCounts.entries())
+      .filter(([_, count]) => count > 1)
+      .map(([seatId]) => seatId);
+
+    if (duplicateSeats.length > 0) {
+      throw new BadRequestException('Cada asiento debe tener solo un pasajero asignado');
+    }
+
+    // 7. Crear pasajeros y actualizar la reserva en una transacción
+    await this.prisma.$transaction(async (tx) => {
+      // Crear pasajeros
+      for (const passengerDto of dto.passengers) {
+        const passenger = await tx.passenger.create({
+          data: {
+            reservationId: reservation.id,
+            documentType: passengerDto.documentType,
+            documentNumber: passengerDto.documentNumber,
+            firstName: passengerDto.firstName,
+            lastName: passengerDto.lastName,
+            passengerType: passengerDto.passengerType,
+          },
+        });
+
+        // Encontrar el ReservationSeat correspondiente
+        const reservationSeat = reservation.reservationSeats.find(
+          (rs) => rs.seatId === passengerDto.seatId,
+        );
+
+        if (reservationSeat) {
+          // Actualizar ReservationSeat con el passengerId
+          await tx.reservationSeat.update({
+            where: { id: reservationSeat.id },
+            data: { passengerId: passenger.id },
+          });
+        }
+      }
+
+      // Marcar formulario como completado
+      await tx.reservation.update({
+        where: { id: reservation.id },
+        data: {
+          passengerFormCompletedAt: new Date(),
+        },
+      });
+    });
+
+    return {
+      success: true,
+      bookingReference: reservation.bookingReference,
+      message: 'Formulario completado exitosamente',
+    };
+  }
+
   private async generateBookingReference(tx: any): Promise<string> {
     const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let reference: string;
