@@ -22,7 +22,9 @@
       "Bash(timeout:*)",
       "Bash(taskkill //F //PID 26764)",
       "Bash(npx shadcn@latest add:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(pnpm build:reservations:*)",
+      "Bash(pnpm --filter @transporte-platform/api build:*)"
     ]
   }
 }

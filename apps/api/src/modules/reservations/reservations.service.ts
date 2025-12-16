@@ -574,6 +574,10 @@ export class ReservationsService {
         );
       }
 
+      console.log(`[CANCEL] Cancelling reservation ${id}, booking ref: ${reservation.bookingReference}`);
+      console.log(`[CANCEL] Reservation has ${reservation.reservationSeats.length} seats to free`);
+      console.log(`[CANCEL] Trip ID: ${reservation.tripId}`);
+
       // Check if payment was made
       const hasPayment = reservation.transactions.some(
         (t) => t.status === 'COMPLETED',
@@ -588,21 +592,26 @@ export class ReservationsService {
         },
       });
 
+      console.log(`[CANCEL] Updated reservation status to CANCELLED`);
+
       // Free seats
-      await Promise.all(
-        reservation.reservationSeats.map((rs) =>
-          tx.tripSeat.update({
+      const updatedSeats = await Promise.all(
+        reservation.reservationSeats.map((rs) => {
+          console.log(`[CANCEL] Freeing tripSeat ${rs.tripSeatId}, current status: ${rs.tripSeat.status}`);
+          return tx.tripSeat.update({
             where: { id: rs.tripSeatId },
             data: {
               status: 'AVAILABLE',
               lockedUntil: null,
             },
-          }),
-        ),
+          });
+        }),
       );
 
+      console.log(`[CANCEL] Freed ${updatedSeats.length} seats`);
+
       // Update trip available seats
-      await tx.scheduledTrip.update({
+      const updatedTrip = await tx.scheduledTrip.update({
         where: { id: reservation.tripId },
         data: {
           availableSeats: {
@@ -610,6 +619,8 @@ export class ReservationsService {
           },
         },
       });
+
+      console.log(`[CANCEL] Updated trip availableSeats from ${updatedTrip.availableSeats - reservation.reservationSeats.length} to ${updatedTrip.availableSeats}`);
 
       return {
         id: updatedReservation.id,
