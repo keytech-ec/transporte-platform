@@ -1,32 +1,65 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 
 @Injectable()
 export class VehiclesService {
-  create(_createVehicleDto: CreateVehicleDto) {
-    // TODO: Implement create logic
-    return { message: 'Create vehicle - to be implemented' };
+  constructor(private prisma: PrismaService) {}
+
+  async create(createVehicleDto: CreateVehicleDto) {
+    const vehicle = await this.prisma.vehicle.create({
+      data: {
+        ...createVehicleDto,
+      },
+    });
+    return vehicle;
   }
 
-  findAll() {
-    // TODO: Implement findAll logic
-    return { message: 'Find all vehicles - to be implemented' };
+  async findAll() {
+    const vehicles = await this.prisma.vehicle.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    return vehicles;
   }
 
-  findOne(id: string) {
-    // TODO: Implement findOne logic
-    return { message: 'Find one vehicle - to be implemented', id };
+  async findOne(id: string) {
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id },
+    });
+
+    if (!vehicle) {
+      throw new NotFoundException(`Vehicle with ID ${id} not found`);
+    }
+
+    return vehicle;
   }
 
-  update(id: string, _updateVehicleDto: UpdateVehicleDto) {
-    // TODO: Implement update logic
-    return { message: 'Update vehicle - to be implemented', id };
+  async update(id: string, updateVehicleDto: UpdateVehicleDto) {
+    // Check if vehicle exists
+    await this.findOne(id);
+
+    const vehicle = await this.prisma.vehicle.update({
+      where: { id },
+      data: {
+        ...updateVehicleDto,
+      },
+    });
+
+    return vehicle;
   }
 
-  remove(id: string) {
-    // TODO: Implement remove logic
-    return { message: 'Remove vehicle - to be implemented', id };
+  async remove(id: string) {
+    // Check if vehicle exists
+    await this.findOne(id);
+
+    await this.prisma.vehicle.delete({
+      where: { id },
+    });
+
+    return { message: 'Vehicle deleted successfully' };
   }
 }
 
