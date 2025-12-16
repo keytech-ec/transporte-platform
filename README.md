@@ -4,6 +4,17 @@ Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
 
 ## Actualizaciones Recientes
 
+### Diciembre 2025 - Dashboard Administrativo Completo
+- ✅ **Dashboard administrativo completamente funcional**: Aplicación Next.js 14 independiente para gestión de la plataforma
+- ✅ **Autenticación JWT integrada**: Login con email/contraseña, protección de rutas, persistencia de sesión con Zustand
+- ✅ **Dashboard Home con analytics**: Tarjetas de métricas (reservas, ingresos, ocupación), gráfico de reservas (Recharts), listas de reservas recientes y próximos viajes
+- ✅ **CRUD de Vehículos**: Gestión completa con búsqueda, filtros, modales de creación/edición, validación de formularios
+- ✅ **CRUD de Servicios**: Gestión de rutas con búsqueda por origen/destino, filtros por tipo (Directo/Con Paradas), gestión de precios y duración
+- ✅ **CRUD de Viajes**: Vista dual (Calendario mensual + Lista), creación de viajes seleccionando servicio/vehículo/horarios, indicadores de ocupación con badges de colores
+- ✅ **Gestión de Reservas**: Visualización con estadísticas, búsqueda por referencia/pasajero, filtros por estado, acciones rápidas (confirmar/cancelar)
+- ✅ **Componentes profesionales**: Sidebar con navegación, header con dropdown de usuario, tablas responsivas con TanStack Table, modales, notificaciones toast, badges de estado
+- ✅ **Cliente API completo**: Axios con interceptores JWT automáticos, manejo de errores 401, métodos CRUD para todos los recursos
+
 ### Diciembre 2025 - Actualización Crítica de Seguridad
 - 🔐 **Next.js actualizado a 14.2.35**: Corrección de vulnerabilidades críticas CVE-2025-66478 (RCE CVSS 10.0), CVE-2025-29927 (Middleware bypass), y CVE-2025-67779 (DoS). **Actualización obligatoria desde versiones 14.0.x-14.1.x**
 
@@ -166,14 +177,22 @@ Luego, ejecuta cada servicio en terminales separadas:
 # Terminal 1 - API Backend (modo producción, más estable)
 pnpm --filter @transporte-platform/api start
 
-# Terminal 2 - Frontend Web (modo desarrollo con hot reload)
+# Terminal 2 - Frontend Web (modo desarrollo con hot reload, puerto 3000)
 pnpm --filter @transporte-platform/web dev
 
-# Terminal 3 - Dashboard (modo desarrollo)
+# Terminal 3 - Dashboard (modo desarrollo, puerto 3002)
 pnpm --filter @transporte-platform/dashboard dev
 ```
 
 **Nota sobre el modo dev del API**: El comando `pnpm --filter @transporte-platform/api dev` puede tener problemas con el modo watch de NestJS en el entorno de monorepo. Se recomienda usar `pnpm build` seguido de `pnpm start` para mayor estabilidad.
+
+### URLs de Acceso
+
+Una vez que todos los servicios estén corriendo:
+
+- **API Backend**: `http://localhost:3001/api` (Swagger docs: `http://localhost:3001/api/docs`)
+- **Frontend Web** (Público): `http://localhost:3000`
+- **Dashboard Admin**: `http://localhost:3002`
 
 ## API Backend (NestJS)
 
@@ -1108,20 +1127,306 @@ Los esquemas de validación están en `src/lib/validations.ts` usando Zod:
 - [ ] Agregar modo oscuro
 - [ ] Implementar historial de reservas para usuarios autenticados
 
+## Dashboard Administrativo (apps/dashboard)
+
+El dashboard administrativo es una aplicación web construida con Next.js 14 que permite a los administradores y operadores gestionar toda la plataforma de transporte.
+
+### Stack Tecnológico
+
+- **Next.js 14** con App Router
+- **TypeScript** (strict mode)
+- **Tailwind CSS** para estilos
+- **shadcn/ui** para componentes UI
+- **Zustand** para estado global (autenticación)
+- **React Hook Form** + **Zod** para formularios y validación
+- **date-fns** para manejo de fechas
+- **Recharts** para gráficos y visualización de datos
+- **TanStack Table** (@tanstack/react-table) para tablas de datos
+- **Axios** para comunicación con el API
+
+### Estructura
+
+```
+apps/dashboard/
+├── src/
+│   ├── app/                          # App Router pages
+│   │   ├── layout.tsx                # Layout raíz con Providers
+│   │   ├── page.tsx                  # Redirect a /dashboard o /login
+│   │   ├── login/
+│   │   │   └── page.tsx              # Página de login con JWT
+│   │   └── dashboard/
+│   │       ├── layout.tsx            # Layout con sidebar y header
+│   │       ├── page.tsx              # Dashboard home con métricas
+│   │       ├── vehiculos/
+│   │       │   └── page.tsx          # CRUD de vehículos
+│   │       ├── servicios/
+│   │       │   └── page.tsx          # CRUD de servicios/rutas
+│   │       ├── viajes/
+│   │       │   └── page.tsx          # CRUD de viajes con calendario
+│   │       └── reservas/
+│   │           └── page.tsx          # Gestión de reservas
+│   ├── components/
+│   │   ├── ui/                       # Componentes shadcn/ui
+│   │   │   ├── button.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── table.tsx
+│   │   │   ├── dialog.tsx
+│   │   │   ├── dropdown-menu.tsx
+│   │   │   ├── avatar.tsx
+│   │   │   ├── badge.tsx
+│   │   │   ├── tabs.tsx
+│   │   │   ├── calendar.tsx
+│   │   │   └── ...
+│   │   ├── dashboard-nav.tsx         # Sidebar de navegación
+│   │   ├── dashboard-header.tsx      # Header con perfil de usuario
+│   │   └── auth-guard.tsx            # Guard para rutas protegidas
+│   ├── lib/
+│   │   ├── api.ts                    # Cliente API con axios
+│   │   └── utils.ts                  # Utilidades (cn, formatters)
+│   ├── stores/
+│   │   └── auth-store.ts             # Store Zustand con persistencia
+│   └── hooks/
+│       └── use-toast.ts              # Hook para notificaciones
+├── public/                            # Archivos estáticos
+├── tailwind.config.ts                # Configuración Tailwind
+├── next.config.js                    # Configuración Next.js
+└── package.json
+```
+
+### Características
+
+- ✅ **Autenticación JWT** completamente funcional
+  - Login con email y contraseña
+  - Protección de rutas con AuthGuard
+  - Persistencia de sesión con Zustand persist
+  - Interceptores Axios para tokens automáticos
+  - Logout con limpieza de estado
+
+- ✅ **Dashboard Home** con métricas y analytics
+  - Tarjetas de métricas: Reservas Hoy, Ingresos del Mes, Ocupación Promedio, Próximos Viajes
+  - Gráfico de barras (Recharts) mostrando reservas de últimos 7 días
+  - Lista de reservas recientes con badges de estado
+  - Lista de próximos viajes con indicadores de ocupación
+
+- ✅ **Gestión de Vehículos** (`/dashboard/vehiculos`)
+  - CRUD completo (Crear, Leer, Actualizar, Eliminar)
+  - Búsqueda por placa, marca o modelo
+  - Filtros por estado (Activo, Inactivo, Mantenimiento)
+  - Modal de formulario con validación
+  - Campos: placa, marca, modelo, año, capacidad, tipo, estado
+
+- ✅ **Gestión de Servicios** (`/dashboard/servicios`)
+  - CRUD completo para rutas de transporte
+  - Búsqueda por nombre, origen o destino
+  - Filtro por tipo (Directo, Con Paradas)
+  - Gestión de precio base y duración
+  - Estados visuales con badges
+
+- ✅ **Gestión de Viajes** (`/dashboard/viajes`)
+  - Doble vista: Calendario y Lista (con tabs)
+  - Calendario interactivo para seleccionar fechas
+  - Creación de viajes seleccionando servicio, vehículo, fecha, horarios y precio
+  - Indicadores de ocupación con badges de colores
+  - Estados: Programado, En Curso, Completado, Cancelado
+  - Vista detallada por fecha seleccionada
+
+- ✅ **Gestión de Reservas** (`/dashboard/reservas`)
+  - Visualización de todas las reservas
+  - Tarjetas de estadísticas: Total, Confirmadas, Pendientes, Ingresos
+  - Búsqueda por referencia o nombre de pasajero
+  - Filtro por estado (Confirmadas, Pendientes, Canceladas)
+  - Acciones rápidas: Confirmar o Cancelar reservas
+  - Badges de estado visuales
+
+- ✅ **Componentes UI profesionales**
+  - Sidebar de navegación con íconos
+  - Header con dropdown de usuario
+  - Tablas responsivas con acciones
+  - Modales para CRUD
+  - Sistema de notificaciones toast
+  - Badges y estados visuales
+  - Componentes de carga (skeletons)
+
+### Configuración
+
+El dashboard requiere un archivo `.env.local` en `apps/dashboard/`. Puedes crearlo basándote en el de la web:
+
+```bash
+# Linux/Mac
+cp apps/web/.env.example apps/dashboard/.env.local
+
+# Windows PowerShell
+Copy-Item apps\web\.env.example apps\dashboard\.env.local
+```
+
+Contenido del archivo `.env.local`:
+
+```env
+# API URL for dashboard
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
+```
+
+### Scripts
+
+```bash
+# Desarrollo (puerto 3002)
+pnpm --filter @transporte-platform/dashboard dev
+
+# Build
+pnpm --filter @transporte-platform/dashboard build
+
+# Producción
+pnpm --filter @transporte-platform/dashboard start
+
+# Linting
+pnpm --filter @transporte-platform/dashboard lint
+```
+
+### Acceso al Dashboard
+
+1. **URL**: `http://localhost:3002`
+2. **Credenciales de prueba** (configuradas en el seed):
+   - **Super Admin**:
+     - Email: `admin@platform.com`
+     - Password: `Test123!`
+   - **Provider Admin (Cotratudossa)**:
+     - Email: `admin@cotratudossa.com`
+     - Password: `Test123!`
+   - **Provider Admin (Cuenca360)**:
+     - Email: `admin@cuenca360.com`
+     - Password: `Test123!`
+
+### Páginas Disponibles
+
+#### `/login` - Página de Login
+- Formulario de autenticación con validación
+- Mensajes de error claros
+- Muestra credenciales de prueba
+- Redirección automática al dashboard después del login
+
+#### `/dashboard` - Dashboard Home
+- Vista general con métricas clave
+- Gráfico de reservas de últimos 7 días
+- Reservas recientes (últimas 5)
+- Próximos viajes programados
+- Indicadores de tendencias
+
+#### `/dashboard/vehiculos` - Gestión de Vehículos
+- Tabla con todos los vehículos
+- Búsqueda en tiempo real
+- Crear nuevo vehículo (modal)
+- Editar vehículo existente (modal)
+- Eliminar vehículo (con confirmación)
+- Columnas: Placa, Marca/Modelo, Año, Tipo, Capacidad, Estado
+
+#### `/dashboard/servicios` - Gestión de Servicios
+- Tabla con todas las rutas
+- Búsqueda y filtros
+- Crear nuevo servicio (modal)
+- Editar servicio (modal)
+- Eliminar servicio (con confirmación)
+- Columnas: Nombre, Ruta (Origen → Destino), Precio Base, Duración, Tipo, Estado
+
+#### `/dashboard/viajes` - Gestión de Viajes
+- **Vista de Lista**: Tabla con todos los viajes filtrados por fecha
+- **Vista de Calendario**: Calendario mensual con viajes del día seleccionado
+- Crear nuevo viaje seleccionando servicio, vehículo, fecha y horarios
+- Editar viaje existente
+- Cancelar viaje
+- Indicadores visuales de ocupación (Disponible, Buena ocupación, Casi lleno)
+- Columnas: Fecha, Ruta, Horario, Vehículo, Precio, Ocupación, Estado
+
+#### `/dashboard/reservas` - Gestión de Reservas
+- Tarjetas con estadísticas (Total, Confirmadas, Pendientes, Ingresos)
+- Tabla con todas las reservas
+- Búsqueda por referencia o pasajero
+- Filtro por estado
+- Acciones: Confirmar reserva pendiente, Cancelar reserva
+- Columnas: Referencia, Pasajero, Ruta, Fecha Viaje, Pasajeros, Total, Estado
+
+### API Client
+
+El cliente API (`src/lib/api.ts`) incluye métodos para:
+
+#### Authentication
+- `login(email, password)` - Autenticar usuario
+- `setToken(token)` - Guardar token en localStorage
+- `getToken()` - Obtener token guardado
+- `clearToken()` - Eliminar token
+
+#### Interceptores
+- **Request interceptor**: Agrega automáticamente el token JWT a cada request
+- **Response interceptor**: Maneja errores 401 (no autorizado) y redirige a login
+
+#### Endpoints CRUD
+- **Vehicles**: `getVehicles()`, `createVehicle()`, `updateVehicle()`, `deleteVehicle()`
+- **Services**: `getServices()`, `createService()`, `updateService()`, `deleteService()`
+- **Trips**: `getTrips()`, `createTrip()`, `updateTrip()`, `deleteTrip()`
+- **Reservations**: `getReservations()`, `updateReservation()`
+- **Dashboard**: `getDashboardStats()` - Obtiene métricas del dashboard
+
+### Estado Global (Zustand)
+
+El store de autenticación (`src/stores/auth-store.ts`) maneja:
+
+```typescript
+interface AuthState {
+  user: User | null;         // Datos del usuario actual
+  token: string | null;      // Token JWT
+  isAuthenticated: boolean;  // Estado de autenticación
+  setAuth: (user, token) => void;  // Guardar sesión
+  clearAuth: () => void;     // Cerrar sesión
+}
+```
+
+Con persistencia en localStorage usando Zustand persist middleware.
+
+### Desarrollo
+
+1. Asegúrate de que la API esté corriendo en `http://localhost:3001`
+2. Crea el archivo `.env.local` con `NEXT_PUBLIC_API_URL`
+3. Instala dependencias: `pnpm install`
+4. Ejecuta el dashboard: `pnpm --filter @transporte-platform/dashboard dev`
+5. Abre `http://localhost:3002` y usa las credenciales de prueba
+
+### Integración con el Backend
+
+El dashboard se comunica con el backend API (`http://localhost:3001/api`) usando:
+- **JWT Authentication** para todas las peticiones
+- **Axios interceptors** para manejo automático de tokens
+- **Endpoints RESTful** para operaciones CRUD
+- **Validación de roles** (SUPER_ADMIN, PROVIDER_ADMIN, OPERATOR, VIEWER)
+
+### Próximos Pasos
+
+- [ ] Agregar filtros avanzados en todas las páginas (fechas, rangos, múltiples criterios)
+- [ ] Implementar paginación para tablas con muchos registros
+- [ ] Agregar exportación de datos (CSV, Excel, PDF)
+- [ ] Implementar dashboard de analytics con más gráficos (línea, pie, área)
+- [ ] Agregar sistema de notificaciones en tiempo real
+- [ ] Implementar reportes financieros y de ocupación
+- [ ] Agregar gestión de usuarios y roles
+- [ ] Implementar configuración de provider (datos, comisiones, cuenta bancaria)
+- [ ] Agregar modo oscuro
+- [ ] Implementar tests (unitarios y e2e)
+
 ## Tecnologías
 
 - **Monorepo**: pnpm workspaces + Turborepo
 - **Backend**: NestJS 10
 - **Frontend Web**: Next.js 14.2.35 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
+- **Dashboard Admin**: Next.js 14 (App Router) + TypeScript + Tailwind CSS + shadcn/ui + Recharts + TanStack Table
 - **Database**: PostgreSQL 15 + Prisma ORM
 - **Cache**: Redis 7
-- **TypeScript**: Strict mode (frontend), configurado para compatibilidad en backend
+- **TypeScript**: Strict mode (frontends), configurado para compatibilidad en backend
 - **Autenticación**: JWT (Passport.js) + bcrypt para hashing de passwords
-- **Validación**: class-validator + class-transformer (backend), Zod (frontend)
+- **Validación**: class-validator + class-transformer (backend), Zod (frontends)
 - **Documentación API**: Swagger/OpenAPI
 - **Scheduling**: @nestjs/schedule para tareas programadas (liberación de asientos bloqueados)
-- **State Management**: Zustand (frontend)
-- **Data Fetching**: React Query / TanStack Query (frontend)
+- **State Management**: Zustand (frontends)
+- **Data Fetching**: React Query / TanStack Query (web), Axios (dashboard)
+- **Data Visualization**: Recharts (dashboard)
+- **HTTP Client**: Axios con interceptores (dashboard)
 
 ## Solución de Problemas (Troubleshooting)
 
