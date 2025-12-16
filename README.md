@@ -4,6 +4,15 @@ Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
 
 ## Actualizaciones Recientes
 
+### Diciembre 2025 - Sistema de Punto de Venta (POS) - Fase 1: Schema
+- ✅ **Schema actualizado para ventas manuales**: Base de datos preparada para sistema de punto de venta
+  - **Nuevos enums**: `SaleChannel` (ONLINE, POS_CASH, POS_TRANSFER, POS_CARD, PHONE), `PaymentMethod` (CASH, BANK_TRANSFER, CREDIT_CARD, DEBIT_CARD, DEUNA, PAYPHONE)
+  - **Reservation**: Campos agregados: `soldById` (vendedor que creó la venta), `saleChannel`, `passengerFormToken` (token único para formulario público), `passengerFormExpiresAt` (72 horas), `passengerFormCompletedAt`, `notes` (notas del vendedor)
+  - **Transaction**: Campos agregados: `receivedBy` (vendedor que recibió el pago), `paymentMethod`, `isPartialPayment` (soporte para pagos parciales), `receiptNumber` (número de recibo manual)
+  - **User**: Campos agregados: `salesCount`, `totalSalesAmount` (estadísticas de ventas por vendedor)
+  - **Passenger**: Campo agregado: `documentType` (CEDULA, PASSPORT, RUC)
+  - **Flujo habilitado**: Vendedor crea reserva → registra pago → genera link de formulario → cliente completa datos de pasajeros
+
 ### Diciembre 2025 - Implementación Completa de CRUD Backend y Corrección de Dashboard
 - ✅ **Backend API CRUD Completo**: Implementación de operaciones CRUD completas usando Prisma para módulos principales
   - **Vehículos**: CRUD completo con validaciones, ordenamiento por fecha de creación, error handling con NotFoundException
