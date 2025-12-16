@@ -56,17 +56,17 @@ export default function ConfirmacionPage() {
       // Keep default value
     }
 
-    const message = `🎫 *Confirmación de Reserva - Transporte Platform*
+    const message = `*Confirmacion de Reserva - Transporte Platform*
 
-📍 Ruta: ${trip?.origin || '-'} → ${trip?.destination || '-'}
-📅 Fecha y hora: ${dateTimeStr}
-🎟️ Referencia: *${res.bookingReference}*
-👥 Pasajeros: ${res.numberOfPassengers}
-💰 Total: ${formatCurrency(res.total)}
+Ruta: ${trip?.origin || '-'} → ${trip?.destination || '-'}
+Fecha y hora: ${dateTimeStr}
+Referencia: *${res.bookingReference}*
+Pasajeros: ${res.passengers?.length || 0}
+Total: ${formatCurrency(res.total)}
 
-¡Reserva confirmada! Presenta tu número de referencia al abordar.
+¡Reserva confirmada! Presenta tu numero de referencia al abordar.
 
-_Reservado a través de Transporte Platform_`;
+_Reservado a traves de Transporte Platform_`;
 
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');

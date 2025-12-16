@@ -40,6 +40,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import { useBookingStore } from '@/stores/booking-store';
 import { useToast } from '@/hooks/use-toast';
+import { LocationCombobox } from '@/components/LocationCombobox';
 
 export default function BuscarPage() {
   const router = useRouter();
@@ -256,7 +257,11 @@ export default function BuscarPage() {
                       <FormItem>
                         <FormLabel>Origen</FormLabel>
                         <FormControl>
-                          <Input placeholder="Ej: Cuenca" {...field} />
+                          <LocationCombobox
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Selecciona el origen"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -269,7 +274,11 @@ export default function BuscarPage() {
                       <FormItem>
                         <FormLabel>Destino</FormLabel>
                         <FormControl>
-                          <Input placeholder="Ej: Guayaquil" {...field} />
+                          <LocationCombobox
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Selecciona el destino"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

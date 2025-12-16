@@ -27,6 +27,7 @@ import { format, parseISO, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { searchTripsSchema, type SearchTripsInput } from '@/lib/validations';
 import { useBookingStore } from '@/stores/booking-store';
+import { LocationCombobox } from '@/components/LocationCombobox';
 
 export default function HomePage() {
   const router = useRouter();
@@ -81,7 +82,11 @@ export default function HomePage() {
                           <FormItem>
                             <FormLabel>Origen</FormLabel>
                             <FormControl>
-                              <Input placeholder="Ej: Cuenca" {...field} />
+                              <LocationCombobox
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                placeholder="Selecciona el origen"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -94,7 +99,11 @@ export default function HomePage() {
                           <FormItem>
                             <FormLabel>Destino</FormLabel>
                             <FormControl>
-                              <Input placeholder="Ej: Guayaquil" {...field} />
+                              <LocationCombobox
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                placeholder="Selecciona el destino"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

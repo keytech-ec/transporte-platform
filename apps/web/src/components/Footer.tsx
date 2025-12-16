@@ -4,11 +4,11 @@ import { MapPin, Mail, Phone, Facebook, Instagram, Twitter } from 'lucide-react'
 export function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-300">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid md:grid-cols-4 gap-8">
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid md:grid-cols-3 gap-8">
           {/* Company Info */}
           <div>
-            <h3 className="text-white text-lg font-bold mb-4">Transporte Platform</h3>
+            <h3 className="text-white text-lg font-bold mb-3">Transporte Platform</h3>
             <p className="text-sm mb-4">
               Tu plataforma de confianza para reservar viajes interprovinciales y tours en Ecuador.
             </p>
@@ -43,31 +43,9 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Quick Links */}
+          {/* Legal */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Enlaces Rápidos</h4>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/" className="hover:text-transporte-blue-400 transition-colors">
-                  Inicio
-                </Link>
-              </li>
-              <li>
-                <Link href="/buscar" className="hover:text-transporte-blue-400 transition-colors">
-                  Buscar Viajes
-                </Link>
-              </li>
-              <li>
-                <Link href="/mis-reservas" className="hover:text-transporte-blue-400 transition-colors">
-                  Mis Reservas
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Support */}
-          <div>
-            <h4 className="text-white font-semibold mb-4">Soporte</h4>
+            <h4 className="text-white font-semibold mb-3">Legal</h4>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="/preguntas-frecuentes" className="hover:text-transporte-blue-400 transition-colors">
@@ -94,33 +72,33 @@ export function Footer() {
 
           {/* Contact Info */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Contacto</h4>
-            <ul className="space-y-3 text-sm">
-              <li className="flex items-start gap-2">
-                <MapPin className="h-5 w-5 text-transporte-blue-400 flex-shrink-0 mt-0.5" />
-                <span>Av. Principal 123, Cuenca, Ecuador</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Phone className="h-5 w-5 text-transporte-blue-400 flex-shrink-0" />
-                <a href="tel:+593987654321" className="hover:text-transporte-blue-400 transition-colors">
+            <h4 className="text-white font-semibold mb-3">Contacto</h4>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <a href="tel:+593987654321" className="hover:text-transporte-blue-400 transition-colors flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-transporte-blue-400 flex-shrink-0" />
                   +593 98 765 4321
                 </a>
               </li>
-              <li className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-transporte-blue-400 flex-shrink-0" />
+              <li>
                 <a
                   href="mailto:info@transporte.com"
-                  className="hover:text-transporte-blue-400 transition-colors"
+                  className="hover:text-transporte-blue-400 transition-colors flex items-center gap-2"
                 >
+                  <Mail className="h-4 w-4 text-transporte-blue-400 flex-shrink-0" />
                   info@transporte.com
                 </a>
+              </li>
+              <li className="flex items-start gap-2 text-xs pt-2">
+                <MapPin className="h-4 w-4 text-transporte-blue-400 flex-shrink-0 mt-0.5" />
+                <span>Av. Principal 123, Cuenca, Ecuador</span>
               </li>
             </ul>
           </div>
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-gray-800 mt-8 pt-8 text-sm text-center">
+        <div className="border-t border-gray-800 mt-6 pt-6 text-xs text-center text-gray-400">
           <p>
             &copy; {new Date().getFullYear()} Transporte Platform. Todos los derechos reservados.
           </p>
