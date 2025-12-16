@@ -209,9 +209,15 @@ class ApiClient {
       }
     );
 
-    // Response interceptor - Handle errors
+    // Response interceptor - Unwrap response and handle errors
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Unwrap the backend response {success: true, data: {...}} -> {...}
+        if (response.data && response.data.success && response.data.data !== undefined) {
+          response.data = response.data.data;
+        }
+        return response;
+      },
       (error: AxiosError<ApiError>) => {
         if (error.response) {
           const { status, data } = error.response;
