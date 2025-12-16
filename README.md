@@ -462,6 +462,18 @@ APP_URL=http://localhost:3000
 - `PUT /api/customers/:id` - Actualizar cliente
 - `DELETE /api/customers/:id` - Eliminar cliente
 
+#### 9. Dashboard (`/api/dashboard`) ✅ **COMPLETAMENTE IMPLEMENTADO**
+- `GET /api/dashboard/stats` - Obtener métricas del dashboard (autenticado)
+  - Retorna estadísticas en tiempo real:
+    - `todayReservations`: Número de reservas creadas hoy
+    - `monthlyRevenue`: Ingresos del mes actual (solo reservas CONFIRMED)
+    - `averageOccupancy`: Porcentaje promedio de ocupación de viajes
+    - `upcomingTrips`: Número de viajes programados en las próximas 24 horas
+- `GET /api/dashboard/reservations-chart?days=7` - Obtener datos para gráfico de reservas (autenticado)
+  - Query params: `days` (opcional, por defecto 7)
+  - Retorna array de datos para gráfico: `[{ day: 'Mon', reservations: 5 }, ...]`
+  - Agrupa reservas por día durante el período especificado
+
 ### Scripts de la API
 
 ```bash
