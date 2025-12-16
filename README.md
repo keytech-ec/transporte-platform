@@ -4,14 +4,22 @@ Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
 
 ## Actualizaciones Recientes
 
-### Diciembre 2025 - Sistema de Punto de Venta (POS) - Fase 1: Schema
-- ✅ **Schema actualizado para ventas manuales**: Base de datos preparada para sistema de punto de venta
+### Diciembre 2025 - Sistema de Punto de Venta (POS) - Fase 1 y 2 Completas
+- ✅ **Fase 1 - Schema actualizado para ventas manuales**: Base de datos preparada para sistema de punto de venta
   - **Nuevos enums**: `SaleChannel` (ONLINE, POS_CASH, POS_TRANSFER, POS_CARD, PHONE), `PaymentMethod` (CASH, BANK_TRANSFER, CREDIT_CARD, DEBIT_CARD, DEUNA, PAYPHONE)
   - **Reservation**: Campos agregados: `soldById` (vendedor que creó la venta), `saleChannel`, `passengerFormToken` (token único para formulario público), `passengerFormExpiresAt` (72 horas), `passengerFormCompletedAt`, `notes` (notas del vendedor)
   - **Transaction**: Campos agregados: `receivedBy` (vendedor que recibió el pago), `paymentMethod`, `isPartialPayment` (soporte para pagos parciales), `receiptNumber` (número de recibo manual)
   - **User**: Campos agregados: `salesCount`, `totalSalesAmount` (estadísticas de ventas por vendedor)
   - **Passenger**: Campo agregado: `documentType` (CEDULA, PASSPORT, RUC)
-  - **Flujo habilitado**: Vendedor crea reserva → registra pago → genera link de formulario → cliente completa datos de pasajeros
+- ✅ **Fase 2 - Backend API Módulo de Ventas**: Módulo completo para ventas manuales (POS)
+  - **Endpoint POST /api/sales/create**: Crear venta manual con pago, genera token de formulario de pasajeros (72h expiración)
+  - **Endpoint GET /api/sales/my-sales**: Ventas del vendedor actual con resumen (cantidad, monto total, efectivo, transferencias, tarjetas)
+  - **Endpoint GET /api/sales/provider-sales**: Todas las ventas del proveedor agrupadas por vendedor (solo PROVIDER_ADMIN)
+  - **Endpoint GET /api/sales/pending-forms**: Reservas con formularios de pasajeros pendientes
+  - **Endpoint POST /api/sales/:reservationId/resend-form**: Reenviar/regenerar link del formulario de pasajeros
+  - **Transacciones atómicas**: Toda la creación de venta se hace en una sola transacción de Prisma
+  - **Actualización automática**: Estadísticas de vendedor (salesCount, totalSalesAmount) se actualizan automáticamente
+  - **Flujo completo**: Vendedor crea reserva → registra pago → genera link → cliente completa datos de pasajeros
 
 ### Diciembre 2025 - Implementación Completa de CRUD Backend y Corrección de Dashboard
 - ✅ **Backend API CRUD Completo**: Implementación de operaciones CRUD completas usando Prisma para módulos principales
