@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { configuration } from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
+import { CommonModule } from './common/common.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProvidersModule } from './modules/providers/providers.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
@@ -30,6 +31,7 @@ import { SalesModule } from './modules/sales/sales.module';
       },
     ]),
     PrismaModule,
+    CommonModule,
     AuthModule,
     ProvidersModule,
     VehiclesModule,

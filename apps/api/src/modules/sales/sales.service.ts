@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { WhatsAppService } from '../../common/services/whatsapp.service';
 import { CreateManualSaleDto } from './dto/create-manual-sale.dto';
 import { CompletePassengerFormDto } from './dto/complete-passenger-form.dto';
 import { CreateManualSaleResult, SaleSummary } from './sales.types';
@@ -14,6 +15,7 @@ export class SalesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly whatsappService: WhatsAppService,
   ) {
     this.frontendUrl = this.configService.get<string>('APP_URL') || 'http://localhost:3000';
   }
@@ -215,11 +217,34 @@ export class SalesService {
     // 9. Generar URL del formulario
     const passengerFormUrl = `${this.frontendUrl}/completar-reserva/${passengerFormToken}`;
 
+    // 10. Enviar enlace por WhatsApp si se solicita
+    let whatsappUrl: string | undefined;
+    if (dto.sendFormVia === 'WHATSAPP') {
+      const whatsappResult = await this.whatsappService.sendPassengerFormLink(
+        dto.contact.phone,
+        `${dto.contact.firstName} ${dto.contact.lastName}`,
+        result.bookingReference,
+        passengerFormUrl,
+        {
+          origin: trip.service.origin,
+          destination: trip.service.destination,
+          serviceName: trip.service.name,
+          departureDate: trip.departureDate.toISOString(),
+          departureTime: typeof trip.departureTime === 'string' ? trip.departureTime : trip.departureTime.toISOString(),
+        },
+      );
+
+      if (whatsappResult.success) {
+        whatsappUrl = whatsappResult.whatsappUrl;
+      }
+    }
+
     return {
       reservationId: result.reservation.id,
       bookingReference: result.bookingReference,
       passengerFormUrl,
       passengerFormToken,
+      whatsappUrl,
     };
   }
 
@@ -441,7 +466,12 @@ export class SalesService {
     }));
   }
 
-  async resendForm(reservationId: string, userId: string, providerId: string) {
+  async resendForm(
+    reservationId: string,
+    userId: string,
+    providerId: string,
+    sendVia: 'WHATSAPP' | 'EMAIL' | 'NONE' = 'NONE',
+  ) {
     const reservation = await this.prisma.reservation.findUnique({
       where: { id: reservationId },
       include: {
@@ -489,10 +519,33 @@ export class SalesService {
 
     const passengerFormUrl = `${this.frontendUrl}/completar-reserva/${token}`;
 
+    // Enviar por WhatsApp si se solicita
+    let whatsappUrl: string | undefined;
+    if (sendVia === 'WHATSAPP') {
+      const whatsappResult = await this.whatsappService.sendPassengerFormLink(
+        reservation.customer.phone,
+        `${reservation.customer.firstName} ${reservation.customer.lastName}`,
+        reservation.bookingReference,
+        passengerFormUrl,
+        {
+          origin: reservation.trip.service.origin,
+          destination: reservation.trip.service.destination,
+          serviceName: reservation.trip.service.name,
+          departureDate: reservation.trip.departureDate.toISOString(),
+          departureTime: typeof reservation.trip.departureTime === 'string' ? reservation.trip.departureTime : reservation.trip.departureTime.toISOString(),
+        },
+      );
+
+      if (whatsappResult.success) {
+        whatsappUrl = whatsappResult.whatsappUrl;
+      }
+    }
+
     return {
       passengerFormUrl,
       passengerFormToken: token,
       expiresAt,
+      whatsappUrl,
     };
   }
 

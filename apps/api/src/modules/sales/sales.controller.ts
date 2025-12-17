@@ -128,6 +128,7 @@ export class SalesController {
   @ApiResponse({ status: 404, description: 'Reserva no encontrada' })
   async resendForm(
     @Param('reservationId') reservationId: string,
+    @Query('sendVia') sendVia: 'WHATSAPP' | 'EMAIL' | 'NONE' = 'NONE',
     @CurrentUser() user: any,
   ) {
     if (!user.providerId) {
@@ -138,6 +139,7 @@ export class SalesController {
       reservationId,
       user.id,
       user.providerId,
+      sendVia,
     );
 
     return {

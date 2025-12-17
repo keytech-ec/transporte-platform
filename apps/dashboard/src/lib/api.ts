@@ -185,24 +185,29 @@ export interface CreateManualSaleData {
   tripId: string;
   seatIds: string[];
   contact: {
+    documentType: 'CEDULA' | 'PASSPORT' | 'RUC';
+    documentNumber: string;
     firstName: string;
     lastName: string;
     phone: string;
     email?: string;
   };
   payment: {
-    saleChannel: 'POS_CASH' | 'POS_TRANSFER' | 'POS_CARD';
-    paymentMethod: 'CASH' | 'BANK_TRANSFER' | 'CREDIT_CARD' | 'DEBIT_CARD';
-    amountPaid: number;
+    amount: number;
+    method: 'CASH' | 'BANK_TRANSFER' | 'CREDIT_CARD' | 'DEBIT_CARD';
+    receiptNumber?: string;
+    isPartial: boolean;
   };
   notes?: string;
+  sendFormVia: 'WHATSAPP' | 'EMAIL' | 'NONE';
 }
 
 export interface ManualSaleResult {
-  reservation: Reservation;
+  reservationId: string;
   bookingReference: string;
   passengerFormToken: string;
   passengerFormUrl: string;
+  whatsappUrl?: string;
 }
 
 export interface MySale {
@@ -490,9 +495,12 @@ class ApiClient {
     return response.data;
   }
 
-  async resendPassengerForm(reservationId: string): Promise<{ message: string; passengerFormUrl: string }> {
-    const response = await this.client.post<{ message: string; passengerFormUrl: string }>(
-      `/sales/${reservationId}/resend-form`
+  async resendPassengerForm(
+    reservationId: string,
+    sendVia: 'WHATSAPP' | 'EMAIL' | 'NONE' = 'NONE'
+  ): Promise<{ message: string; passengerFormUrl: string; whatsappUrl?: string }> {
+    const response = await this.client.post<{ message: string; passengerFormUrl: string; whatsappUrl?: string }>(
+      `/sales/${reservationId}/resend-form?sendVia=${sendVia}`
     );
     return response.data;
   }

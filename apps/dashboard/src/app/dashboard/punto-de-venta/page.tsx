@@ -30,7 +30,6 @@ import {
 } from 'lucide-react';
 import api, { type Trip, type Seat, type CreateManualSaleData } from '@/lib/api';
 
-type SaleChannel = 'POS_CASH' | 'POS_TRANSFER' | 'POS_CARD';
 type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CREDIT_CARD' | 'DEBIT_CARD';
 
 interface TripWithSeats extends Trip {
@@ -55,16 +54,20 @@ export default function PuntoDeVentaPage() {
 
   // Step 3: Contact and payment
   const [contactData, setContactData] = useState({
+    documentType: 'CEDULA' as 'CEDULA' | 'PASSPORT' | 'RUC',
+    documentNumber: '',
     firstName: '',
     lastName: '',
     phone: '',
     email: '',
   });
   const [paymentData, setPaymentData] = useState({
-    saleChannel: 'POS_CASH' as SaleChannel,
-    paymentMethod: 'CASH' as PaymentMethod,
-    amountPaid: 0,
+    amount: 0,
+    method: 'CASH' as PaymentMethod,
+    receiptNumber: '',
+    isPartial: false,
   });
+  const [sendFormVia, setSendFormVia] = useState<'WHATSAPP' | 'EMAIL' | 'NONE'>('WHATSAPP');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -130,7 +133,7 @@ export default function PuntoDeVentaPage() {
   const updateTotalAmount = () => {
     if (!selectedTrip) return;
     const total = selectedSeats.length * selectedTrip.price;
-    setPaymentData(prev => ({ ...prev, amountPaid: total }));
+    setPaymentData(prev => ({ ...prev, amount: total }));
   };
 
   useEffect(() => {
@@ -161,20 +164,31 @@ export default function PuntoDeVentaPage() {
         tripId: selectedTrip.id,
         seatIds: selectedSeats.map(s => s.id),
         contact: {
+          documentType: contactData.documentType,
+          documentNumber: contactData.documentNumber,
           firstName: contactData.firstName,
           lastName: contactData.lastName,
           phone: contactData.phone,
           email: contactData.email || undefined,
         },
         payment: {
-          saleChannel: paymentData.saleChannel,
-          paymentMethod: paymentData.paymentMethod,
-          amountPaid: paymentData.amountPaid,
+          amount: paymentData.amount,
+          method: paymentData.method,
+          receiptNumber: paymentData.receiptNumber || undefined,
+          isPartial: paymentData.isPartial,
         },
         notes: notes || undefined,
+        sendFormVia,
       };
 
       const result = await api.createManualSale(saleData);
+
+      toast({
+        title: 'Venta creada',
+        description: sendFormVia === 'WHATSAPP' && result.whatsappUrl
+          ? 'Venta registrada y enlace enviado por WhatsApp'
+          : 'Venta registrada correctamente',
+      });
 
       // Redirect to confirmation page with sale data
       router.push(`/dashboard/punto-de-venta/confirmacion?ref=${result.bookingReference}`);
@@ -460,6 +474,37 @@ export default function PuntoDeVentaPage() {
               <div className="grid gap-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <Label htmlFor="documentType">Tipo de Documento *</Label>
+                    <Select
+                      value={contactData.documentType}
+                      onValueChange={(value: 'CEDULA' | 'PASSPORT' | 'RUC') =>
+                        setContactData({ ...contactData, documentType: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CEDULA">Cédula</SelectItem>
+                        <SelectItem value="PASSPORT">Pasaporte</SelectItem>
+                        <SelectItem value="RUC">RUC</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="documentNumber">Número de Documento *</Label>
+                    <Input
+                      id="documentNumber"
+                      value={contactData.documentNumber}
+                      onChange={(e) =>
+                        setContactData({ ...contactData, documentNumber: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
                     <Label htmlFor="firstName">Nombres *</Label>
                     <Input
                       id="firstName"
@@ -520,30 +565,11 @@ export default function PuntoDeVentaPage() {
               <div className="grid gap-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="saleChannel">Canal de Venta *</Label>
-                    <Select
-                      value={paymentData.saleChannel}
-                      onValueChange={(value: SaleChannel) =>
-                        setPaymentData({ ...paymentData, saleChannel: value })
-                      }
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="POS_CASH">Efectivo (POS)</SelectItem>
-                        <SelectItem value="POS_TRANSFER">Transferencia (POS)</SelectItem>
-                        <SelectItem value="POS_CARD">Tarjeta (POS)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
                     <Label htmlFor="paymentMethod">Método de Pago *</Label>
                     <Select
-                      value={paymentData.paymentMethod}
+                      value={paymentData.method}
                       onValueChange={(value: PaymentMethod) =>
-                        setPaymentData({ ...paymentData, paymentMethod: value })
+                        setPaymentData({ ...paymentData, method: value })
                       }
                       required
                     >
@@ -558,19 +584,63 @@ export default function PuntoDeVentaPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <Label htmlFor="amount">Monto Pagado *</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      value={paymentData.amount}
+                      onChange={(e) =>
+                        setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="receiptNumber">Número de Recibo (opcional)</Label>
+                    <Input
+                      id="receiptNumber"
+                      value={paymentData.receiptNumber}
+                      onChange={(e) =>
+                        setPaymentData({ ...paymentData, receiptNumber: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2 pt-8">
+                    <input
+                      type="checkbox"
+                      id="isPartial"
+                      checked={paymentData.isPartial}
+                      onChange={(e) =>
+                        setPaymentData({ ...paymentData, isPartial: e.target.checked })
+                      }
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="isPartial" className="font-normal">
+                      Pago parcial
+                    </Label>
+                  </div>
                 </div>
                 <div>
-                  <Label htmlFor="amountPaid">Monto Pagado *</Label>
-                  <Input
-                    id="amountPaid"
-                    type="number"
-                    step="0.01"
-                    value={paymentData.amountPaid}
-                    onChange={(e) =>
-                      setPaymentData({ ...paymentData, amountPaid: parseFloat(e.target.value) })
+                  <Label htmlFor="sendFormVia">Enviar Formulario de Pasajeros *</Label>
+                  <Select
+                    value={sendFormVia}
+                    onValueChange={(value: 'WHATSAPP' | 'EMAIL' | 'NONE') =>
+                      setSendFormVia(value)
                     }
-                    required
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WHATSAPP">Por WhatsApp</SelectItem>
+                      <SelectItem value="EMAIL">Por Email</SelectItem>
+                      <SelectItem value="NONE">No enviar</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="notes">Notas (opcional)</Label>
