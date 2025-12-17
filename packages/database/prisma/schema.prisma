@@ -455,6 +455,8 @@ model User {
 
   email           String   @unique
   passwordHash    String
+  firstName       String   @db.VarChar(100)
+  lastName        String   @db.VarChar(100)
   role            UserRole @default(OPERATOR)
   status          UserStatus @default(ACTIVE)
 

@@ -12,6 +12,14 @@ export class RegisterDto {
   @MinLength(6)
   password!: string;
 
+  @ApiProperty({ example: 'John' })
+  @IsString()
+  firstName!: string;
+
+  @ApiProperty({ example: 'Doe' })
+  @IsString()
+  lastName!: string;
+
   @ApiPropertyOptional({ example: '0190123456001', description: 'Provider ID (null for platform admin)' })
   @IsOptional()
   @IsUUID()

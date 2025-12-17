@@ -80,7 +80,7 @@ export default function PuntoDeVentaPage() {
       });
 
       // Filter only scheduled trips
-      const scheduledTrips = data.filter(trip => trip.status === 'scheduled');
+      const scheduledTrips = data.filter(trip => trip.status === 'SCHEDULED');
       setTrips(scheduledTrips);
 
       if (scheduledTrips.length === 0) {

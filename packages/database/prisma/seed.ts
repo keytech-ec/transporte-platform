@@ -43,11 +43,11 @@ async function main() {
 
   // Clear existing data (in reverse order of dependencies)
   console.log('🧹 Clearing existing data...');
-  await prisma.tripSeat.deleteMany();
   await prisma.reservationSeat.deleteMany();
   await prisma.passenger.deleteMany();
-  await prisma.reservation.deleteMany();
   await prisma.transaction.deleteMany();
+  await prisma.reservation.deleteMany();
+  await prisma.tripSeat.deleteMany();
   await prisma.scheduledTrip.deleteMany();
   await prisma.seat.deleteMany();
   await prisma.vehicle.deleteMany();
@@ -403,6 +403,8 @@ async function main() {
     data: {
       email: 'admin@platform.com',
       passwordHash,
+      firstName: 'Super',
+      lastName: 'Admin',
       role: 'SUPER_ADMIN',
       status: 'ACTIVE',
       providerId: null,
@@ -413,6 +415,8 @@ async function main() {
     data: {
       email: 'admin@cotratudossa.com',
       passwordHash,
+      firstName: 'Admin',
+      lastName: 'Cotratudossa',
       role: 'PROVIDER_ADMIN',
       status: 'ACTIVE',
       providerId: cotratudossa.id,
@@ -423,6 +427,8 @@ async function main() {
     data: {
       email: 'admin@cuenca360.com',
       passwordHash,
+      firstName: 'Admin',
+      lastName: 'Cuenca360',
       role: 'PROVIDER_ADMIN',
       status: 'ACTIVE',
       providerId: cuenca360.id,

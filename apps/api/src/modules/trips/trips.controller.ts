@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { TripsService } from './trips.service';
 import { CreateTripDto } from './dto/create-trip.dto';
@@ -17,8 +17,14 @@ export class TripsController {
 
   @Get()
   @ApiOperation({ summary: 'Listar todos los viajes' })
-  findAll() {
-    return this.tripsService.findAll();
+  findAll(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('status') status?: string,
+    @Query('serviceId') serviceId?: string,
+    @Query('vehicleId') vehicleId?: string,
+  ) {
+    return this.tripsService.findAll({ startDate, endDate, status, serviceId, vehicleId });
   }
 
   @Get(':id')

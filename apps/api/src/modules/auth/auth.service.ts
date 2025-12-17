@@ -62,6 +62,8 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
         role: user.role,
         providerId: user.providerId,
         provider: user.provider,
@@ -103,6 +105,8 @@ export class AuthService {
       data: {
         email: registerDto.email,
         passwordHash,
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
         role: registerDto.role || UserRole.OPERATOR,
         providerId: registerDto.providerId || null,
       },

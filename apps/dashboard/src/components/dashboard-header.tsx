@@ -23,12 +23,13 @@ export function DashboardHeader() {
     router.push('/login');
   };
 
-  const getInitials = (firstName: string, lastName: string) => {
+  const getInitials = (firstName?: string, lastName?: string) => {
+    if (!firstName || !lastName) return 'U';
     return `${firstName[0]}${lastName[0]}`.toUpperCase();
   };
 
   const getFullName = () => {
-    if (!user) return 'Usuario';
+    if (!user || !user.firstName || !user.lastName) return 'Usuario';
     return `${user.firstName} ${user.lastName}`;
   };
 

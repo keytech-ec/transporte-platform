@@ -25,14 +25,49 @@ export class TripsService {
     };
   }
 
-  async findAll() {
+  async findAll(filters?: {
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+    serviceId?: string;
+    vehicleId?: string;
+  }) {
+    const where: any = {};
+
+    // Date range filter
+    if (filters?.startDate || filters?.endDate) {
+      where.departureDate = {};
+      if (filters.startDate) {
+        where.departureDate.gte = new Date(filters.startDate);
+      }
+      if (filters.endDate) {
+        where.departureDate.lte = new Date(filters.endDate);
+      }
+    }
+
+    // Status filter
+    if (filters?.status) {
+      where.status = filters.status;
+    }
+
+    // Service filter
+    if (filters?.serviceId) {
+      where.serviceId = filters.serviceId;
+    }
+
+    // Vehicle filter
+    if (filters?.vehicleId) {
+      where.vehicleId = filters.vehicleId;
+    }
+
     const trips = await this.prisma.scheduledTrip.findMany({
+      where,
       include: {
         service: true,
         vehicle: true,
       },
       orderBy: {
-        departureDate: 'desc',
+        departureDate: 'asc',
       },
     });
 
