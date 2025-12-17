@@ -10,6 +10,79 @@ This is a **monorepo for a transportation platform** built with pnpm workspaces 
 - **Admin Dashboard** (Next.js 14) - Administrative management interface
 - **Shared Packages** - Database schema, shared types, and UI components
 
+## Development Principles
+
+**CRITICAL: Follow these guidelines for ALL code changes:**
+
+### 1. Incremental Implementation & Testing
+- **Do each implementation step by step**
+- **Test thoroughly and verify functionality before moving to the next step**
+- Never implement multiple features simultaneously without testing each one
+- If something breaks, identify and fix it immediately before proceeding
+
+### 2. Impact Analysis & Cross-file Updates
+- **Check if new changes impact other files and update them too**
+- Search for all usages of modified functions, types, or components
+- Update imports, type definitions, and dependent code across the entire codebase
+- Example: If you modify an API endpoint, update:
+  - Frontend API calls
+  - Type definitions in `packages/shared`
+  - Related tests
+  - Documentation
+
+### 3. Consistency, Simplicity & Structure
+- **Keep consistency across the codebase**
+- **Reuse existing components, patterns, and utilities**
+- **Minimize impact** - prefer modifying existing code over creating new files
+- Follow established patterns:
+  - NestJS modules follow the same structure (controller → service → repository)
+  - Frontend components use shadcn/ui and Tailwind CSS
+  - API responses use consistent DTOs
+  - Error handling follows established patterns
+- Before creating a new component or utility, check if a similar one exists
+
+### 4. Documentation Updates
+- **Check and update documentation after making changes**
+- Update relevant README files when modifying:
+  - Database schema → `packages/database/README.md`
+  - API endpoints → Update Swagger decorators and module docs
+  - New features → Update `CLAUDE.md` if architectural changes occur
+  - Environment variables → Update `.env.example` and documentation
+- Keep inline code comments up-to-date with logic changes
+
+### 5. Database-Driven & Dynamic Elements
+- **Use dynamic elements loaded from the database when possible**
+- **Centralize data to avoid hardcoding** (cities, filters, categories, etc.)
+- Examples of what should be DB-driven:
+  - Cities/locations → Load from `Service.origin` and `Service.destination`
+  - Vehicle types → Load from `VehicleType` enum (already in DB schema)
+  - Service types → Load from `ServiceType` table
+  - Filters and dropdowns → Derive from existing data
+
+**Performance considerations:**
+- If DB queries would significantly impact performance, use hardcoded values or caching
+- When hardcoding is necessary, **document it clearly** in:
+  - The relevant README file
+  - Code comments explaining why it's hardcoded
+  - A note about what needs updating when data changes
+
+**Example:**
+```typescript
+// ❌ BAD - Hardcoded without documentation
+const cities = ['Cuenca', 'Guayaquil', 'Quito'];
+
+// ✅ GOOD - Dynamic from database
+const cities = await prisma.service.findMany({
+  select: { origin: true, destination: true },
+  distinct: ['origin', 'destination']
+});
+
+// ✅ ACCEPTABLE - Hardcoded with clear documentation
+// NOTE: Update this list when adding new provinces
+// See: packages/database/README.md for updating locations
+const ecuadorProvinces = ['Azuay', 'Guayas', 'Pichincha']; // Static for performance
+```
+
 ## Essential Commands
 
 ### Development Workflow
