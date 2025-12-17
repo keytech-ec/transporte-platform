@@ -102,11 +102,11 @@ export default function PuntoDeVentaPage() {
 
   const selectTrip = async (trip: Trip) => {
     try {
-      const seats = await api.getTripSeats(trip.id);
-      setSelectedTrip({ ...trip, seats });
+      const seatData = await api.getTripSeats(trip.id);
+      setSelectedTrip({ ...trip, seats: seatData.seats });
       setPaymentData(prev => ({
         ...prev,
-        amountPaid: trip.price,
+        amount: trip.pricePerSeat,
       }));
       setCurrentStep(2);
     } catch (error: any) {
@@ -132,7 +132,7 @@ export default function PuntoDeVentaPage() {
 
   const updateTotalAmount = () => {
     if (!selectedTrip) return;
-    const total = selectedSeats.length * selectedTrip.price;
+    const total = selectedSeats.length * selectedTrip.pricePerSeat;
     setPaymentData(prev => ({ ...prev, amount: total }));
   };
 
@@ -366,20 +366,20 @@ export default function PuntoDeVentaPage() {
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4 text-muted-foreground" />
                               <span className="font-semibold">
-                                {trip.origin} → {trip.destination}
+                                {trip.service?.origin} → {trip.service?.destination}
                               </span>
                             </div>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
-                                <span>{trip.departureTime}</span>
+                                <span>{new Date(trip.departureTime).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <Users className="h-3 w-3" />
                                 <span>{trip.availableSeats} disponibles</span>
                               </div>
                               <span className="font-semibold text-primary">
-                                {formatCurrency(trip.price)}
+                                {formatCurrency(trip.pricePerSeat)}
                               </span>
                             </div>
                           </div>
@@ -405,7 +405,7 @@ export default function PuntoDeVentaPage() {
             <CardHeader>
               <CardTitle>Seleccionar Asientos</CardTitle>
               <CardDescription>
-                Viaje: {selectedTrip.origin} → {selectedTrip.destination} | {selectedTrip.departureTime}
+                Viaje: {selectedTrip.service?.origin} → {selectedTrip.service?.destination} | {new Date(selectedTrip.departureTime).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: true })}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -441,7 +441,7 @@ export default function PuntoDeVentaPage() {
                       ))}
                     </div>
                     <p className="text-lg font-bold">
-                      Total: {formatCurrency(selectedSeats.length * selectedTrip.price)}
+                      Total: {formatCurrency(selectedSeats.length * selectedTrip.pricePerSeat)}
                     </p>
                   </div>
                 )}
@@ -665,18 +665,18 @@ export default function PuntoDeVentaPage() {
                 <div className="flex justify-between">
                   <span>Viaje:</span>
                   <span className="font-medium">
-                    {selectedTrip.origin} → {selectedTrip.destination}
+                    {selectedTrip.service?.origin} → {selectedTrip.service?.destination}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Fecha:</span>
                   <span className="font-medium">
-                    {format(parseISO(selectedTrip.date), 'dd MMM yyyy', { locale: es })}
+                    {format(parseISO(selectedTrip.departureDate), 'dd MMM yyyy', { locale: es })}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Hora:</span>
-                  <span className="font-medium">{selectedTrip.departureTime}</span>
+                  <span className="font-medium">{new Date(selectedTrip.departureTime).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Asientos:</span>
@@ -691,7 +691,7 @@ export default function PuntoDeVentaPage() {
                 <div className="flex justify-between pt-4 border-t">
                   <span className="text-lg font-semibold">Total:</span>
                   <span className="text-lg font-bold text-primary">
-                    {formatCurrency(selectedSeats.length * selectedTrip.price)}
+                    {formatCurrency(selectedSeats.length * selectedTrip.pricePerSeat)}
                   </span>
                 </div>
               </div>

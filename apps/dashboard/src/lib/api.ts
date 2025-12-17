@@ -446,7 +446,7 @@ class ApiClient {
   }
 
   async getTripSeats(id: string): Promise<Seat[]> {
-    const response = await this.client.get<Seat[]>(`/trips/${id}/seats`);
+    const response = await this.client.get<Seat[]>(`/reservations/trips/${id}/seats`);
     return response.data;
   }
 
