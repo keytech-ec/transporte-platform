@@ -11,6 +11,7 @@ import {
   ClipboardList,
   ShoppingCart,
   DollarSign,
+  BarChart3,
   LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,11 @@ const navItems = [
     title: 'Mis Ventas',
     href: '/dashboard/mis-ventas',
     icon: DollarSign,
+  },
+  {
+    title: 'Reportes',
+    href: '/dashboard/reportes',
+    icon: BarChart3,
   },
 ];
 

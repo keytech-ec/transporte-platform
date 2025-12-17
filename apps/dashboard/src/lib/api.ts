@@ -231,6 +231,22 @@ export interface MySale {
   createdAt: string;
 }
 
+export interface VendorReportSummary {
+  vendor: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+  };
+  salesCount: number;
+  totalAmount: number;
+  cashAmount: number;
+  transferAmount: number;
+  cardAmount: number;
+  sales: any[];
+}
+
 export interface ApiError {
   message: string;
   statusCode: number;
@@ -478,6 +494,11 @@ class ApiClient {
     const response = await this.client.post<{ message: string; passengerFormUrl: string }>(
       `/sales/${reservationId}/resend-form`
     );
+    return response.data;
+  }
+
+  async getProviderSales(params?: { from?: string; to?: string }): Promise<VendorReportSummary[]> {
+    const response = await this.client.get<VendorReportSummary[]>('/sales/provider-sales', { params });
     return response.data;
   }
 }
