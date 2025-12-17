@@ -30,7 +30,10 @@
       "Bash(pnpm --filter @transporte-platform/api start)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(pnpm --filter @transporte-platform/dashboard dev:*)"
+      "Bash(pnpm --filter @transporte-platform/dashboard dev:*)",
+      "Bash(docker exec:*)",
+      "Bash(python:*)",
+      "Bash(pnpm --filter @transporte-platform/web dev:*)"
     ]
   }
 }

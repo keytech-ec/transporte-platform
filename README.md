@@ -4,6 +4,39 @@ Monorepo para plataforma de transporte usando pnpm workspaces y Turborepo.
 
 ## Actualizaciones Recientes
 
+### Diciembre 2025 - Correcciones Críticas del Sistema POS y Gestión de Reservas
+- 🐛 **Corrección de bugs críticos en POS (Punto de Venta)**:
+  - **Status filter**: Corregido filtro de trips que usaba lowercase 'scheduled' cuando la base de datos retorna uppercase 'SCHEDULED'
+  - **Display de origen/destino**: Corregido acceso a datos anidados - ahora usa `trip.service?.origin` y `trip.service?.destination` correctamente
+  - **Formato de tiempo**: Corregido display de hora de salida usando `toLocaleTimeString()` para convertir ISO timestamp a formato legible (ej: "11:00 AM")
+  - **Campo de precio**: Corregido uso de `trip.pricePerSeat` en lugar de `trip.price` inexistente
+  - **Campo de fecha**: Corregido uso de `trip.departureDate` en lugar de `trip.date` inexistente
+  - **Mapa de asientos**: Corregido extracción de array de asientos desde respuesta API anidada (`seatData.seats`)
+  - **Cálculo de total**: Corregido cálculo de precio total usando `selectedTrip.pricePerSeat * selectedSeats.length` en 3 ubicaciones
+- 🐛 **Corrección de array safety en páginas de vendedor**:
+  - **Mis Ventas**: Agregado check `Array.isArray(sales)` antes de spread operator para prevenir error "sales is not iterable"
+  - **Reportes**: Agregado checks de array antes de todas las operaciones reduce/filter/map para prevenir errores de tipo
+  - **getOverallStats()**: Ahora retorna objeto con valores por defecto (0) si vendorReports no es array
+  - **getTopVendor()**: Retorna null si vendorReports no es array o está vacío
+  - **Table render**: Agregado check `Array.isArray(vendorReports)` antes de mapear filas
+- 🐛 **Corrección de display de Reservas en Dashboard**:
+  - **Backend mapping**: Implementado transformación completa de datos en `reservations.service.ts:findAll()` para mapear estructura de Prisma a estructura esperada por frontend
+  - **Campos agregados**: `reference` (bookingReference), `passengerName` (customer fullname), `passengers` array con nombres completos, `trip.date` (departureDate), `totalPrice` (total convertido a número)
+  - **Conversión de tipos**: Todos los campos Decimal (total, pricePerSeat, basePrice) convertidos a números con `.toNumber()`
+  - **Relaciones incluidas**: Agregado include de `passengers` y `reservationSeats` con sus relaciones para datos completos
+  - **Datos ahora visibles**: Referencia de reserva, nombre del pasajero, ruta completa, fecha de viaje, cantidad de pasajeros, y total correcto en lugar de "N/A" y "$NaN"
+- 🐛 **Corrección de autenticación y user model**:
+  - **Schema actualizado**: Agregados campos `firstName` y `lastName` al modelo User en schema.prisma
+  - **Migration manual**: Ejecutada alteración de tabla directamente en PostgreSQL vía Docker
+  - **RegisterDto actualizado**: Agregados campos firstName/lastName con validación @IsString
+  - **Login response**: Incluye firstName/lastName del usuario autenticado
+  - **Dashboard header**: Agregados null checks y parámetros opcionales en `getInitials()` y `getFullName()` para prevenir crashes
+  - **Seed actualizado**: Usuarios de prueba ahora incluyen nombres reales (Admin Cotratudossa, Admin Cuenca360, etc.)
+- 🐛 **Corrección de filtrado de viajes por fecha**:
+  - **Query parameters**: Agregado soporte para startDate, endDate, status, serviceId, vehicleId en trips controller
+  - **Date filtering**: Implementado filtrado por rango de fechas en trips.service.ts usando Prisma where clause
+  - **Endpoint correcto de seats**: Corregido path de `getTripSeats()` de `/trips/:id/seats` a `/reservations/trips/:id/seats`
+
 ### Diciembre 2025 - Sistema de Punto de Venta (POS) - Fases 1, 2 y 3 Completas
 - ✅ **Fase 1 - Schema actualizado para ventas manuales**: Base de datos preparada para sistema de punto de venta
   - **Nuevos enums**: `SaleChannel` (ONLINE, POS_CASH, POS_TRANSFER, POS_CARD, PHONE), `PaymentMethod` (CASH, BANK_TRANSFER, CREDIT_CARD, DEBIT_CARD, DEUNA, PAYPHONE)

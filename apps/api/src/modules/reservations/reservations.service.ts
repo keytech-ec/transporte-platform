@@ -759,7 +759,7 @@ export class ReservationsService {
 
   // Legacy methods for compatibility
   async findAll() {
-    return this.prisma.reservation.findMany({
+    const reservations = await this.prisma.reservation.findMany({
       include: {
         trip: {
           include: {
@@ -767,11 +767,80 @@ export class ReservationsService {
           },
         },
         customer: true,
+        passengers: true,
+        reservationSeats: {
+          include: {
+            seat: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
+
+    return reservations.map((reservation) => ({
+      id: reservation.id,
+      tripId: reservation.tripId,
+      userId: reservation.soldById || '',
+      seatIds: reservation.reservationSeats.map((rs) => rs.seatId),
+      totalPrice: reservation.total.toNumber(),
+      status: reservation.status.toLowerCase() as 'pending' | 'confirmed' | 'cancelled' | 'completed',
+      paymentStatus: 'pending' as 'pending' | 'paid' | 'refunded',
+      paymentMethod: undefined,
+      passengerName: `${reservation.customer.firstName} ${reservation.customer.lastName}`,
+      passengerEmail: reservation.customer.email || '',
+      passengerPhone: reservation.customer.phone,
+      bookingReference: reservation.bookingReference,
+      reference: reservation.bookingReference,
+      passengers: reservation.passengers.map((p) => ({
+        id: p.id,
+        documentNumber: p.documentNumber,
+        firstName: p.firstName,
+        lastName: p.lastName,
+        name: `${p.firstName} ${p.lastName}`,
+      })),
+      createdAt: reservation.createdAt.toISOString(),
+      updatedAt: reservation.updatedAt.toISOString(),
+      trip: {
+        id: reservation.trip.id,
+        serviceId: reservation.trip.serviceId,
+        vehicleId: reservation.trip.vehicleId,
+        driverId: '',
+        origin: reservation.trip.service.origin,
+        destination: reservation.trip.service.destination,
+        date: reservation.trip.departureDate.toISOString(),
+        departureTime: reservation.trip.departureTime.toISOString(),
+        arrivalTime: '',
+        price: reservation.trip.pricePerSeat.toNumber(),
+        availableSeats: reservation.trip.availableSeats,
+        status: reservation.trip.status.toLowerCase() as 'scheduled' | 'in_progress' | 'completed' | 'cancelled',
+        createdAt: reservation.trip.createdAt.toISOString(),
+        updatedAt: reservation.trip.updatedAt.toISOString(),
+        service: {
+          id: reservation.trip.service.id,
+          name: reservation.trip.service.name,
+          description: '',
+          origin: reservation.trip.service.origin,
+          destination: reservation.trip.service.destination,
+          basePrice: reservation.trip.service.basePrice?.toNumber() || 0,
+          duration: reservation.trip.service.duration || 0,
+          type: 'regular' as 'regular' | 'express' | 'vip' | 'direct' | 'with_stops',
+          status: 'active' as 'active' | 'inactive',
+          createdAt: reservation.trip.service.createdAt.toISOString(),
+          updatedAt: reservation.trip.service.updatedAt.toISOString(),
+        },
+      },
+      seats: reservation.reservationSeats.map((rs) => ({
+        id: rs.seat.id,
+        tripId: reservation.tripId,
+        seatNumber: rs.seat.seatNumber,
+        row: rs.seat.row,
+        column: rs.seat.column,
+        status: 'occupied' as 'available' | 'reserved' | 'occupied',
+        reservationId: reservation.id,
+      })),
+    }));
   }
 
   async findOne(id: string) {

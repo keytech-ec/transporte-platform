@@ -70,6 +70,7 @@ export default function MisVentasPage() {
   };
 
   const applyFilters = () => {
+    if (!Array.isArray(sales)) return;
     let filtered = [...sales];
 
     if (fromDate) {

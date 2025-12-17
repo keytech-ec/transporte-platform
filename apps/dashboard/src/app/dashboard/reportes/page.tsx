@@ -78,6 +78,10 @@ export default function ReportsPage() {
   };
 
   const getOverallStats = () => {
+    if (!Array.isArray(vendorReports)) {
+      return { totalSales: 0, totalRevenue: 0, totalCash: 0, totalTransfer: 0, totalCard: 0, activeVendors: 0 };
+    }
+
     const totalSales = vendorReports.reduce((sum, v) => sum + v.salesCount, 0);
     const totalRevenue = vendorReports.reduce((sum, v) => sum + v.totalAmount, 0);
     const totalCash = vendorReports.reduce((sum, v) => sum + v.cashAmount, 0);
@@ -91,7 +95,7 @@ export default function ReportsPage() {
   const stats = getOverallStats();
 
   const getTopVendor = () => {
-    if (vendorReports.length === 0) return null;
+    if (!Array.isArray(vendorReports) || vendorReports.length === 0) return null;
     return vendorReports.reduce((top, current) =>
       current.totalAmount > top.totalAmount ? current : top
     );
@@ -263,7 +267,7 @@ export default function ReportsPage() {
                       Cargando...
                     </TableCell>
                   </TableRow>
-                ) : vendorReports.length === 0 ? (
+                ) : !Array.isArray(vendorReports) || vendorReports.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
                       No se encontraron ventas en el período seleccionado
