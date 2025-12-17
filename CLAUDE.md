@@ -164,27 +164,96 @@ Provider Admin: admin@cuenca360.com / Test123!
 ### Database (Prisma + PostgreSQL)
 
 **Location:** `packages/database/prisma/schema.prisma`
+**Documentation:** See `packages/database/README.md` for comprehensive schema reference
 
-#### Key Models
-- **Provider** - Multi-tenant transport companies
-- **Vehicle** - Buses/vans with seat layouts (JSON)
-- **Service** - Routes (origin → destination)
-- **ScheduledTrip** - Specific trips with dates/times
-- **TripSeat** - Individual seat states per trip
-- **Reservation** - Customer bookings
-- **Passenger** - Traveler details linked to seats
-- **Transaction** - Payment records
-- **User** - Admin/operator accounts
+#### Entity Relationship Overview
+
+```
+Provider (Transport Company)
+├── Vehicles → Seats → TripSeats (per trip availability)
+├── Services (Routes) → ScheduledTrips
+│   └── Reservations
+│       ├── ReservationSeats (seat assignments)
+│       ├── Passengers (traveler info)
+│       └── Transactions (payments)
+└── Users (operators/admins)
+    ├── soldReservations (sales tracking)
+    └── receivedTransactions (POS payments)
+
+Customer → Reservations
+```
+
+#### Core Models (13 total)
+
+**Multi-tenancy:**
+1. **Provider** - Transport companies with commission rates
+2. **User** - Dashboard users (admins, operators, viewers) with role-based access
+
+**Inventory:**
+3. **Vehicle** - Buses/vans with seat layouts (JSON), amenities
+4. **Seat** - Individual physical seats (position, tier, row/column)
+5. **ServiceType** - Service categories (Interprovincial, Tourism, etc.)
+6. **Service** - Routes/tours (origin → destination, base pricing)
+
+**Scheduling:**
+7. **ScheduledTrip** - Specific trip instances (date, time, vehicle, pricing, status)
+8. **TripSeat** - Per-trip seat availability with 15-min locking mechanism
+
+**Bookings:**
+9. **Customer** - Passenger contact information (unique by document)
+10. **Reservation** - Booking records with reference codes, channel tracking
+11. **Passenger** - Individual travelers with document details, passenger type
+12. **ReservationSeat** - Links passengers to specific seats
+
+**Payments:**
+13. **Transaction** - Payment records (gateway, method, commission split, status)
+
+#### Critical Features
+
+**Seat Locking Flow:**
+```
+AVAILABLE → LOCKED (15 min) → RESERVED → CONFIRMED
+         ↘ (timeout)        ↘ (cancel)
+           AVAILABLE          AVAILABLE
+```
+
+**Multi-channel Support:**
+- Booking channels: WEB, TELEGRAM, WHATSAPP, PHONE, DASHBOARD
+- Sale channels: ONLINE, POS_CASH, POS_TRANSFER, POS_CARD, PHONE
+
+**Role-based Access:**
+- SUPER_ADMIN: Platform-wide access (providerId = null)
+- PROVIDER_ADMIN: Company-level management
+- OPERATOR: POS sales, create reservations
+- VIEWER: Read-only access
+
+**Commission Tracking:**
+- Provider commission rate (default 5%)
+- Transaction splits: `amount`, `commission`, `providerAmount`
+- User sales statistics: `salesCount`, `totalSalesAmount`
 
 #### Seed Data
 Generates realistic test data for Ecuador:
 - 2 providers (Cotratudossa, Cuenca360)
 - 4 vehicles (2 buses, 1 double-decker, 1 van)
-- 5 services (Cuenca-Guayaquil, Cuenca-Quito, tours)
-- 28 scheduled trips (next 7 days)
-- 3 admin users
+- 5 service types + 5 services (Cuenca-Guayaquil, Cuenca-Quito, tours)
+- 28 scheduled trips (next 7 days, 4 trips/day)
+- 3 admin users (see "Test Credentials" section above)
 
 **Note:** Re-run `pnpm db:seed` if trips are in the past.
+
+#### Important: Decimal Field Handling
+
+All Prisma `Decimal` types MUST be converted to `number` before API responses:
+```typescript
+// Affected models and fields:
+Provider.commissionRate.toNumber()
+Service.basePrice.toNumber()
+ScheduledTrip.pricePerSeat.toNumber()
+Reservation.subtotal.toNumber(), .commission.toNumber(), .total.toNumber()
+Transaction.amount.toNumber(), .commission.toNumber(), .providerAmount.toNumber()
+User.totalSalesAmount.toNumber()
+```
 
 ## Common Development Tasks
 

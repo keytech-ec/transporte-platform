@@ -33,7 +33,8 @@
       "Bash(pnpm --filter @transporte-platform/dashboard dev:*)",
       "Bash(docker exec:*)",
       "Bash(python:*)",
-      "Bash(pnpm --filter @transporte-platform/web dev:*)"
+      "Bash(pnpm --filter @transporte-platform/web dev:*)",
+      "Bash(git push)"
     ]
   }
 }
