@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Pencil, Trash2, Search, MapPin } from 'lucide-react';
 import api, { type Service as ApiService } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -42,6 +43,8 @@ interface ServiceFormData {
   type: string;
   status: string;
   description?: string;
+  seatSelectionMode: 'NONE' | 'OPTIONAL' | 'REQUIRED';
+  requiresPassengerInfo: boolean;
 }
 
 export default function ServicesPage() {
@@ -61,6 +64,8 @@ export default function ServicesPage() {
     type: 'direct',
     status: 'active',
     description: '',
+    seatSelectionMode: 'REQUIRED',
+    requiresPassengerInfo: true,
   });
   const { toast } = useToast();
 
@@ -122,6 +127,8 @@ export default function ServicesPage() {
         type: service.type,
         status: service.status,
         description: service.description || '',
+        seatSelectionMode: service.seatSelectionMode || 'REQUIRED',
+        requiresPassengerInfo: service.requiresPassengerInfo !== undefined ? service.requiresPassengerInfo : true,
       });
     } else {
       setEditingService(null);
@@ -134,6 +141,8 @@ export default function ServicesPage() {
         type: 'direct',
         status: 'active',
         description: '',
+        seatSelectionMode: 'REQUIRED',
+        requiresPassengerInfo: true,
       });
     }
     setIsDialogOpen(true);
@@ -476,6 +485,51 @@ export default function ServicesPage() {
                   }
                   placeholder="Descripción adicional del servicio"
                 />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="seatSelectionMode">Modo de Selección de Asientos *</Label>
+                <Select
+                  value={formData.seatSelectionMode}
+                  onValueChange={(value: 'NONE' | 'OPTIONAL' | 'REQUIRED') =>
+                    setFormData({ ...formData, seatSelectionMode: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">Sin asientos (solo cantidad)</SelectItem>
+                    <SelectItem value="OPTIONAL">Asientos opcionales</SelectItem>
+                    <SelectItem value="REQUIRED">Asientos requeridos</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                  {formData.seatSelectionMode === 'NONE' && 'Los vendedores solo ingresan cantidad de pasajeros, sin asignar asientos específicos'}
+                  {formData.seatSelectionMode === 'OPTIONAL' && 'Los vendedores pueden optar por asignar asientos específicos o solo cantidad'}
+                  {formData.seatSelectionMode === 'REQUIRED' && 'Los vendedores deben asignar asientos específicos a cada pasajero'}
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="requiresPassengerInfo"
+                  checked={formData.requiresPassengerInfo}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, requiresPassengerInfo: checked as boolean })
+                  }
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <Label
+                    htmlFor="requiresPassengerInfo"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Requiere información de pasajeros
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Si está desactivado, solo se solicita el contacto del cliente (sin formulario de pasajeros)
+                  </p>
+                </div>
               </div>
             </div>
 

@@ -150,6 +150,13 @@ Customer
 | `name` | String(200) | Display name |
 | `basePrice` | Decimal(10,2)? | Starting price per seat |
 | `duration` | Int? | Trip duration in minutes |
+| `seatSelectionMode` | SeatSelectionMode | **NEW:** Seat assignment mode (default: REQUIRED) |
+| `requiresPassengerInfo` | Boolean | **NEW:** Requires full passenger details (default: true) |
+
+**Seat Selection Modes:**
+- `NONE`: Quantity-only bookings (no specific seat assignment)
+- `OPTIONAL`: Seats can be selected but not required
+- `REQUIRED`: Must select specific seats (traditional behavior)
 
 **Indexes:** `providerId`, `origin + destination`
 
@@ -175,6 +182,7 @@ Customer
 | `pricePerSeat` | Decimal(10,2) | Price for this trip |
 | `bookingMode` | BookingMode | PER_SEAT, FULL_VEHICLE, BOTH |
 | `status` | TripStatus | SCHEDULED, BOARDING, IN_PROGRESS, COMPLETED, CANCELLED |
+| `seatSelectionMode` | SeatSelectionMode? | **NEW:** Optional override (NULL = inherit from Service) |
 
 **Indexes:** `serviceId + departureDate`, `vehicleId + departureDate`, `departureDate + status`
 
@@ -298,12 +306,17 @@ AVAILABLE → LOCKED (15 min) → RESERVED → CONFIRMED
 | `reservationId` | UUID | Parent reservation |
 | `tripSeatId` | UUID | Trip seat instance (unique) |
 | `passengerId` | UUID? | Assigned passenger (unique) |
-| `seatId` | UUID | Physical seat reference |
+| `seatId` | UUID? | **UPDATED:** Physical seat reference (nullable for quantity-only bookings) |
+| `floorNumber` | Int? | **NEW:** Floor assignment for multi-floor vehicles (1, 2, 3, etc.) |
+
+**Use Cases:**
+- Seat-based booking: `seatId` populated with specific seat
+- Quantity-only booking: `seatId = NULL`, `floorNumber` optional for multi-floor vehicles
 
 **Unique Constraints:** `tripSeatId`, `passengerId`
 
 **Relationships:**
-- Belongs to: Reservation, TripSeat, Passenger (optional), Seat
+- Belongs to: Reservation, TripSeat, Passenger (optional), Seat (optional)
 
 ---
 

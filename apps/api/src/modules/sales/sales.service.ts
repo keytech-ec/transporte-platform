@@ -25,16 +25,21 @@ export class SalesService {
     userId: string,
     providerId: string,
   ): Promise<CreateManualSaleResult> {
-    // 1. Validar que el viaje pertenece al proveedor del usuario
-    const trip = await this.prisma.scheduledTrip.findUnique({
-      where: { id: dto.tripId },
-      include: {
-        service: {
-          include: { provider: true },
+    try {
+      console.log('[createManualSale] Starting with dto:', JSON.stringify(dto));
+
+      // 1. Validar que el viaje pertenece al proveedor del usuario
+      const trip = await this.prisma.scheduledTrip.findUnique({
+        where: { id: dto.tripId },
+        include: {
+          service: {
+            include: { provider: true },
+          },
+          vehicle: true,
         },
-        vehicle: true,
-      },
-    });
+      });
+
+      console.log('[createManualSale] Trip found:', trip ? 'yes' : 'no');
 
     if (!trip) {
       throw new NotFoundException('Viaje no encontrado');
@@ -44,27 +49,52 @@ export class SalesService {
       throw new ForbiddenException('No tienes permiso para crear ventas en este viaje');
     }
 
-    // 2. Validar disponibilidad de asientos
-    const tripSeats = await this.prisma.tripSeat.findMany({
-      where: {
-        tripId: dto.tripId,
-        seatId: { in: dto.seatIds },
-      },
-      include: { seat: true },
-    });
+    // 2. Determine seat selection mode
+    const seatMode = trip.seatSelectionMode ?? trip.service.seatSelectionMode;
 
-    if (tripSeats.length !== dto.seatIds.length) {
-      throw new BadRequestException('Algunos asientos no existen en este viaje');
+    // 3. Validate seat/quantity requirements
+    if (seatMode === 'REQUIRED' && (!dto.seatIds || dto.seatIds.length === 0)) {
+      throw new BadRequestException('La selección de asientos es requerida para este viaje');
     }
 
-    const unavailableSeats = tripSeats.filter(ts => ts.status !== SeatStatus.AVAILABLE);
-    if (unavailableSeats.length > 0) {
-      const seatNumbers = unavailableSeats.map(ts => ts.seat.seatNumber).join(', ');
-      throw new BadRequestException(`Los siguientes asientos no están disponibles: ${seatNumbers}`);
+    if (seatMode === 'NONE' && !dto.quantity) {
+      throw new BadRequestException('Debe especificar la cantidad de asientos');
     }
 
-    // 3. Validar monto del pago
-    const totalAmount = trip.pricePerSeat.toNumber() * dto.seatIds.length;
+    // 4. Validate floor for multi-floor vehicles (if using quantity)
+    if (seatMode === 'NONE' && dto.quantity) {
+      const seatLayout = trip.vehicle.seatLayout as any;
+      const floors = seatLayout?.floors || [];
+      if (floors.length > 1 && !dto.floorNumber) {
+        throw new BadRequestException('Debe seleccionar un piso para vehículos de varios pisos');
+      }
+    }
+
+    // 5. Validate seats availability (if using seat-based booking)
+    let tripSeats: any[] = [];
+    if (dto.seatIds && dto.seatIds.length > 0) {
+      tripSeats = await this.prisma.tripSeat.findMany({
+        where: {
+          tripId: dto.tripId,
+          seatId: { in: dto.seatIds },
+        },
+        include: { seat: true },
+      });
+
+      if (tripSeats.length !== dto.seatIds.length) {
+        throw new BadRequestException('Algunos asientos no existen en este viaje');
+      }
+
+      const unavailableSeats = tripSeats.filter((ts) => ts.status !== SeatStatus.AVAILABLE);
+      if (unavailableSeats.length > 0) {
+        const seatNumbers = unavailableSeats.map((ts) => ts.seat.seatNumber).join(', ');
+        throw new BadRequestException(`Los siguientes asientos no están disponibles: ${seatNumbers}`);
+      }
+    }
+
+    // 6. Calculate total and validate payment
+    const seatCount = dto.seatIds?.length || dto.quantity || 0;
+    const totalAmount = trip.pricePerSeat.toNumber() * seatCount;
     if (dto.payment.amount > totalAmount) {
       throw new BadRequestException('El monto del pago no puede ser mayor al total');
     }
@@ -92,12 +122,14 @@ export class SalesService {
       });
     }
 
-    // 5. Generar token para formulario de pasajeros
-    const passengerFormToken = uuidv4();
-    const passengerFormExpiresAt = new Date();
-    passengerFormExpiresAt.setHours(passengerFormExpiresAt.getHours() + 72);
+    // 7. Determine if passenger form is needed
+    const needsPassengerForm = trip.service.requiresPassengerInfo;
 
-    // 6. Calcular comisiones
+    // 8. Calculate smart form expiration
+    const formExpiresAt = needsPassengerForm ? this.calculateFormExpiration(trip) : null;
+    const passengerFormToken = needsPassengerForm ? uuidv4() : null;
+
+    // 9. Calculate commissions
     const provider = trip.service.provider;
     const subtotal = totalAmount;
     const commission = (subtotal * provider.commissionRate.toNumber()) / 100;
@@ -125,7 +157,13 @@ export class SalesService {
       DEBIT_CARD: PaymentGateway.CASH,
     };
 
-    // 8. Crear reserva, transaction y actualizar asientos en una transacción
+    // 10. Reserve capacity for quantity-based bookings (before transaction)
+    let quantitySeats: any[] = [];
+    if (dto.quantity && seatMode === 'NONE') {
+      quantitySeats = await this.decreaseAvailableCapacity(dto.tripId, dto.quantity, dto.floorNumber);
+    }
+
+    // 11. Crear reserva, transaction y actualizar asientos en una transacción
     const result = await this.prisma.$transaction(async (tx) => {
       // Generar booking reference
       const bookingReference = await this.generateBookingReference(tx);
@@ -138,15 +176,15 @@ export class SalesService {
           soldById: userId,
           bookingReference,
           reservationType: 'PER_SEAT',
-          numPassengers: dto.seatIds.length,
+          numPassengers: seatCount,
           subtotal,
           commission,
           total,
-          status: ReservationStatus.CONFIRMED,
+          status: needsPassengerForm ? ReservationStatus.CONFIRMED : ReservationStatus.CONFIRMED,
           channel: 'DASHBOARD',
           saleChannel: saleChannelMap[dto.payment.method],
           passengerFormToken,
-          passengerFormExpiresAt,
+          passengerFormExpiresAt: formExpiresAt,
           notes: dto.notes,
         },
       });
@@ -169,38 +207,63 @@ export class SalesService {
         },
       });
 
-      // Actualizar TripSeats a CONFIRMED
-      await tx.tripSeat.updateMany({
-        where: {
-          tripId: dto.tripId,
-          seatId: { in: dto.seatIds },
-        },
-        data: {
-          status: SeatStatus.CONFIRMED,
-        },
-      });
+      // Handle seat assignment based on booking mode
+      if (dto.seatIds && dto.seatIds.length > 0) {
+        // Seat-based booking
+        // Actualizar TripSeats a CONFIRMED
+        await tx.tripSeat.updateMany({
+          where: {
+            tripId: dto.tripId,
+            seatId: { in: dto.seatIds },
+          },
+          data: {
+            status: SeatStatus.CONFIRMED,
+          },
+        });
 
-      // Crear ReservationSeats
-      const reservationSeatsData = dto.seatIds.map((seatId) => {
-        const tripSeat = tripSeats.find(ts => ts.seatId === seatId);
-        return {
+        // Crear ReservationSeats
+        const reservationSeatsData = dto.seatIds.map((seatId) => {
+          const tripSeat = tripSeats.find((ts) => ts.seatId === seatId);
+          return {
+            reservationId: reservation.id,
+            tripSeatId: tripSeat.id,
+            seatId,
+          };
+        });
+
+        await tx.reservationSeat.createMany({
+          data: reservationSeatsData,
+        });
+
+        // Actualizar availableSeats del viaje
+        await tx.scheduledTrip.update({
+          where: { id: dto.tripId },
+          data: {
+            availableSeats: { decrement: dto.seatIds.length },
+          },
+        });
+      } else if (dto.quantity) {
+        // Quantity-based booking
+        // Create ReservationSeats without specific seat assignment
+        const quantityReservationSeatsData = quantitySeats.map((tripSeat) => ({
           reservationId: reservation.id,
           tripSeatId: tripSeat.id,
-          seatId,
-        };
-      });
+          seatId: null, // No specific seat assigned
+          floorNumber: dto.floorNumber || null,
+        }));
 
-      await tx.reservationSeat.createMany({
-        data: reservationSeatsData,
-      });
+        await tx.reservationSeat.createMany({
+          data: quantityReservationSeatsData,
+        });
 
-      // Actualizar availableSeats del viaje
-      await tx.scheduledTrip.update({
-        where: { id: dto.tripId },
-        data: {
-          availableSeats: { decrement: dto.seatIds.length },
-        },
-      });
+        // Actualizar availableSeats del viaje
+        await tx.scheduledTrip.update({
+          where: { id: dto.tripId },
+          data: {
+            availableSeats: { decrement: dto.quantity },
+          },
+        });
+      }
 
       // Actualizar estadísticas del vendedor
       await tx.user.update({
@@ -214,12 +277,14 @@ export class SalesService {
       return { reservation, bookingReference };
     });
 
-    // 9. Generar URL del formulario
-    const passengerFormUrl = `${this.frontendUrl}/completar-reserva/${passengerFormToken}`;
+    // 12. Generar URL del formulario (only if needed)
+    const passengerFormUrl = needsPassengerForm && passengerFormToken
+      ? `${this.frontendUrl}/completar-reserva/${passengerFormToken}`
+      : null;
 
-    // 10. Enviar enlace por WhatsApp si se solicita
+    // 13. Enviar enlace por WhatsApp si se solicita y se necesita formulario
     let whatsappUrl: string | undefined;
-    if (dto.sendFormVia === 'WHATSAPP') {
+    if (needsPassengerForm && dto.sendFormVia === 'WHATSAPP' && passengerFormUrl) {
       const whatsappResult = await this.whatsappService.sendPassengerFormLink(
         dto.contact.phone,
         `${dto.contact.firstName} ${dto.contact.lastName}`,
@@ -239,13 +304,19 @@ export class SalesService {
       }
     }
 
-    return {
-      reservationId: result.reservation.id,
-      bookingReference: result.bookingReference,
-      passengerFormUrl,
-      passengerFormToken,
-      whatsappUrl,
-    };
+      return {
+        reservationId: result.reservation.id,
+        bookingReference: result.bookingReference,
+        needsPassengerForm,
+        passengerFormUrl: needsPassengerForm ? passengerFormUrl : undefined,
+        passengerFormToken: needsPassengerForm ? passengerFormToken : undefined,
+        formExpiresAt: needsPassengerForm ? formExpiresAt : undefined,
+        whatsappUrl,
+      };
+    } catch (error) {
+      console.error('[createManualSale] Error:', error);
+      throw error;
+    }
   }
 
   async getMySales(
@@ -738,6 +809,169 @@ export class SalesService {
       bookingReference: reservation.bookingReference,
       message: 'Formulario completado exitosamente',
     };
+  }
+
+  // ============================================
+  // NEW: Get available trips grouped by service for POS
+  // ============================================
+
+  async getAvailableTripsByDate(date: string, providerId?: string) {
+    // Parse date in local timezone
+    const [year, month, day] = date.split('-').map(Number);
+    const startDate = new Date(year, month - 1, day);
+    const endDate = new Date(year, month - 1, day + 1);
+
+    const trips = await this.prisma.scheduledTrip.findMany({
+      where: {
+        departureDate: { gte: startDate, lt: endDate },
+        status: 'SCHEDULED',
+        availableSeats: { gt: 0 },
+        ...(providerId && { service: { providerId } }),
+      },
+      include: {
+        service: {
+          include: {
+            serviceType: true,
+            provider: true,
+          },
+        },
+        vehicle: true,
+      },
+      orderBy: [
+        { service: { name: 'asc' } },
+        { departureTime: 'asc' },
+      ],
+    });
+
+    // Group by service
+    const grouped: Record<string, any> = {};
+
+    trips.forEach((trip) => {
+      const serviceId = trip.serviceId;
+      if (!grouped[serviceId]) {
+        grouped[serviceId] = {
+          serviceId,
+          serviceName: trip.service.name,
+          origin: trip.service.origin,
+          destination: trip.service.destination,
+          seatSelectionMode: trip.service.seatSelectionMode,
+          requiresPassengerInfo: trip.service.requiresPassengerInfo,
+          trips: [],
+        };
+      }
+
+      // Detect floors from vehicle seatLayout
+      const seatLayout = trip.vehicle.seatLayout as any;
+      const floors = seatLayout?.floors || [];
+
+      grouped[serviceId].trips.push({
+        id: trip.id,
+        departureTime: trip.departureTime.toString(),
+        arrivalTime: trip.service.duration
+          ? this.calculateArrivalTime(trip.departureTime, trip.service.duration)
+          : null,
+        pricePerSeat: trip.pricePerSeat.toNumber(),
+        availableSeats: trip.availableSeats,
+        seatSelectionMode: trip.seatSelectionMode ?? trip.service.seatSelectionMode,
+        requiresPassengerInfo: trip.service.requiresPassengerInfo,
+        vehicleType: trip.vehicle.type,
+        vehiclePlate: trip.vehicle.plate,
+        hasMultipleFloors: floors.length > 1,
+        floorCount: floors.length,
+      });
+    });
+
+    return {
+      date,
+      services: Object.values(grouped),
+    };
+  }
+
+  // ============================================
+  // PRIVATE HELPERS
+  // ============================================
+
+  private calculateArrivalTime(departureTime: Date, durationMinutes: number): string {
+    const departure = new Date(departureTime);
+    const arrival = new Date(departure.getTime() + durationMinutes * 60000);
+    return arrival.toISOString();
+  }
+
+  private calculateFormExpiration(trip: any): Date {
+    const now = new Date();
+    const standard = new Date(now.getTime() + 72 * 60 * 60 * 1000); // 72 hours from now
+
+    // Parse departure date (handle if already Date object)
+    const departure = trip.departureDate instanceof Date
+      ? new Date(trip.departureDate.getTime())
+      : new Date(trip.departureDate);
+
+    // Parse departure time
+    const departureTimeStr = trip.departureTime?.toString() || '00:00';
+    const timeParts = departureTimeStr.split(':');
+    const hours = parseInt(timeParts[0]) || 0;
+    const minutes = parseInt(timeParts[1]) || 0;
+
+    departure.setHours(hours, minutes, 0, 0);
+
+    const departureLimit = new Date(departure.getTime() + 10 * 60 * 1000); // departure + 10 min
+
+    // Return whichever is sooner
+    return standard < departureLimit ? standard : departureLimit;
+  }
+
+  private async decreaseAvailableCapacity(
+    tripId: string,
+    quantity: number,
+    floorNumber?: number,
+  ): Promise<any[]> {
+    // Find available TripSeats
+    const whereClause: any = {
+      tripId,
+      status: SeatStatus.AVAILABLE,
+    };
+
+    // If floor specified, filter by seat tier
+    if (floorNumber !== undefined && floorNumber !== null) {
+      // Map floor number to SeatTier enum
+      const tierMap: Record<number, any> = {
+        1: 'LOWER_DECK',
+        2: 'UPPER_DECK',
+        // Add more if needed
+      };
+
+      const tier = tierMap[floorNumber];
+      if (tier) {
+        whereClause.seat = {
+          tier,
+        };
+      }
+    }
+
+    const availableSeats = await this.prisma.tripSeat.findMany({
+      where: whereClause,
+      take: quantity,
+      include: { seat: true },
+    });
+
+    if (availableSeats.length < quantity) {
+      const floorMsg = floorNumber ? ` on floor ${floorNumber}` : '';
+      throw new BadRequestException(
+        `Not enough available seats${floorMsg}. Requested: ${quantity}, Available: ${availableSeats.length}`,
+      );
+    }
+
+    // Mark as CONFIRMED (skip RESERVED status for quantity bookings)
+    await this.prisma.tripSeat.updateMany({
+      where: {
+        id: { in: availableSeats.map((s) => s.id) },
+      },
+      data: {
+        status: SeatStatus.CONFIRMED,
+      },
+    });
+
+    return availableSeats;
   }
 
   private async generateBookingReference(tx: any): Promise<string> {

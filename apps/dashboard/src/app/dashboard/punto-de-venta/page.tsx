@@ -14,45 +14,82 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
-  Search,
   MapPin,
   Clock,
   Users,
   CreditCard,
-  Check,
-  ArrowRight,
-  ArrowLeft,
   Loader2,
+  ChevronDown,
+  ChevronRight,
+  Bus,
+  Calendar,
+  Minus,
+  Plus,
 } from 'lucide-react';
-import api, { type Trip, type Seat, type CreateManualSaleData } from '@/lib/api';
+import api, { type CreateManualSaleData } from '@/lib/api';
 
 type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CREDIT_CARD' | 'DEBIT_CARD';
+type SeatSelectionMode = 'NONE' | 'OPTIONAL' | 'REQUIRED';
 
-interface TripWithSeats extends Trip {
-  seats: Seat[];
+interface AvailableTripDto {
+  id: string;
+  departureTime: string;
+  arrivalTime?: string;
+  pricePerSeat: number;
+  availableSeats: number;
+  seatSelectionMode: SeatSelectionMode;
+  requiresPassengerInfo: boolean;
+  vehicleType: string;
+  vehiclePlate: string;
+  hasMultipleFloors: boolean;
+  floorCount?: number;
+}
+
+interface ServiceGroupDto {
+  serviceId: string;
+  serviceName: string;
+  origin: string;
+  destination: string;
+  seatSelectionMode: SeatSelectionMode;
+  requiresPassengerInfo: boolean;
+  trips: AvailableTripDto[];
+}
+
+interface Seat {
+  id: string;
+  seatNumber: string;
+  row: number;
+  column: number;
+  status: 'available' | 'locked' | 'reserved';
 }
 
 export default function PuntoDeVentaPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // Step management
-  const [currentStep, setCurrentStep] = useState(1);
+  // Date selection
+  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [serviceGroups, setServiceGroups] = useState<ServiceGroupDto[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [expandedServices, setExpandedServices] = useState<Set<string>>(new Set());
 
-  // Step 1: Search trips
-  const [searchDate, setSearchDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [loadingTrips, setLoadingTrips] = useState(false);
-  const [selectedTrip, setSelectedTrip] = useState<TripWithSeats | null>(null);
-
-  // Step 2: Select seats
+  // Selected trip and booking data
+  const [selectedTrip, setSelectedTrip] = useState<AvailableTripDto | null>(null);
+  const [tripSeats, setTripSeats] = useState<Seat[]>([]);
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([]);
+  const [quantity, setQuantity] = useState<number>(1);
+  const [selectedFloor, setSelectedFloor] = useState<number>(1);
 
-  // Step 3: Contact and payment
+  // Contact and payment
   const [contactData, setContactData] = useState({
     documentType: 'CEDULA' as 'CEDULA' | 'PASSPORT' | 'RUC',
     documentNumber: '',
@@ -71,50 +108,60 @@ export default function PuntoDeVentaPage() {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const searchTrips = async () => {
-    setLoadingTrips(true);
+  // Load services when date changes
+  useEffect(() => {
+    loadAvailableTrips();
+  }, [selectedDate]);
+
+  const loadAvailableTrips = async () => {
+    setLoadingServices(true);
     try {
-      const data = await api.getTrips({
-        startDate: searchDate,
-        endDate: searchDate,
-      });
+      const response = await api.getAvailableTrips(selectedDate);
+      setServiceGroups(response.services || []);
 
-      // Filter only scheduled trips
-      const scheduledTrips = data.filter(trip => trip.status === 'SCHEDULED');
-      setTrips(scheduledTrips);
-
-      if (scheduledTrips.length === 0) {
-        toast({
-          title: 'Sin resultados',
-          description: 'No se encontraron viajes para la fecha seleccionada',
-        });
+      // Auto-expand first service
+      if (response.services && response.services.length > 0) {
+        setExpandedServices(new Set([response.services[0].serviceId]));
       }
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Error al buscar viajes',
+        description: error.message || 'Error al cargar viajes',
         variant: 'destructive',
       });
     } finally {
-      setLoadingTrips(false);
+      setLoadingServices(false);
     }
   };
 
-  const selectTrip = async (trip: Trip) => {
-    try {
-      const seatData = await api.getTripSeats(trip.id);
-      setSelectedTrip({ ...trip, seats: seatData.seats });
-      setPaymentData(prev => ({
-        ...prev,
-        amount: trip.pricePerSeat,
-      }));
-      setCurrentStep(2);
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Error al cargar asientos',
-        variant: 'destructive',
-      });
+  const toggleService = (serviceId: string) => {
+    const newExpanded = new Set(expandedServices);
+    if (newExpanded.has(serviceId)) {
+      newExpanded.delete(serviceId);
+    } else {
+      newExpanded.add(serviceId);
+    }
+    setExpandedServices(newExpanded);
+  };
+
+  const selectTrip = async (trip: AvailableTripDto) => {
+    setSelectedTrip(trip);
+    setQuantity(1);
+    setSelectedSeats([]);
+    setPaymentData(prev => ({ ...prev, amount: trip.pricePerSeat }));
+
+    // Load seats if seat selection is required or optional
+    if (trip.seatSelectionMode !== 'NONE') {
+      try {
+        const seatData = await api.getTripSeats(trip.id);
+        setTripSeats(seatData.seats || []);
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error.message || 'Error al cargar asientos',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -132,16 +179,29 @@ export default function PuntoDeVentaPage() {
 
   const updateTotalAmount = () => {
     if (!selectedTrip) return;
-    const total = selectedSeats.length * selectedTrip.pricePerSeat;
+
+    let count = 0;
+    if (selectedTrip.seatSelectionMode === 'NONE') {
+      count = quantity;
+    } else {
+      count = selectedSeats.length;
+    }
+
+    const total = count * selectedTrip.pricePerSeat;
     setPaymentData(prev => ({ ...prev, amount: total }));
   };
 
   useEffect(() => {
     updateTotalAmount();
-  }, [selectedSeats]);
+  }, [selectedSeats, quantity, selectedTrip]);
 
-  const goToPayment = () => {
-    if (selectedSeats.length === 0) {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedTrip) return;
+
+    // Validation
+    if (selectedTrip.seatSelectionMode === 'REQUIRED' && selectedSeats.length === 0) {
       toast({
         title: 'Atención',
         description: 'Debes seleccionar al menos un asiento',
@@ -149,20 +209,21 @@ export default function PuntoDeVentaPage() {
       });
       return;
     }
-    setCurrentStep(3);
-  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!selectedTrip || selectedSeats.length === 0) return;
+    if (selectedTrip.seatSelectionMode === 'NONE' && quantity < 1) {
+      toast({
+        title: 'Atención',
+        description: 'Debes ingresar una cantidad válida',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setSubmitting(true);
 
     try {
       const saleData: CreateManualSaleData = {
         tripId: selectedTrip.id,
-        seatIds: selectedSeats.map(s => s.id),
         contact: {
           documentType: contactData.documentType,
           documentNumber: contactData.documentNumber,
@@ -178,8 +239,18 @@ export default function PuntoDeVentaPage() {
           isPartial: paymentData.isPartial,
         },
         notes: notes || undefined,
-        sendFormVia,
+        sendFormVia: selectedTrip.requiresPassengerInfo ? sendFormVia : 'NONE',
       };
+
+      // Add seat-based or quantity-based data
+      if (selectedTrip.seatSelectionMode !== 'NONE' && selectedSeats.length > 0) {
+        saleData.seatIds = selectedSeats.map(s => s.id);
+      } else if (selectedTrip.seatSelectionMode === 'NONE') {
+        saleData.quantity = quantity;
+        if (selectedTrip.hasMultipleFloors) {
+          saleData.floorNumber = selectedFloor;
+        }
+      }
 
       const result = await api.createManualSale(saleData);
 
@@ -190,8 +261,22 @@ export default function PuntoDeVentaPage() {
           : 'Venta registrada correctamente',
       });
 
-      // Redirect to confirmation page with sale data
-      router.push(`/dashboard/punto-de-venta/confirmacion?ref=${result.bookingReference}`);
+      // Fix for ref=undefined bug: Extract bookingReference correctly
+      const bookingRef = result.data?.bookingReference || result.bookingReference;
+
+      if (!bookingRef) {
+        toast({
+          title: 'Advertencia',
+          description: 'Venta creada pero no se generó código de reserva',
+          variant: 'destructive',
+        });
+        // Reload page instead
+        window.location.reload();
+        return;
+      }
+
+      // Redirect to confirmation page
+      router.push(`/dashboard/punto-de-venta/confirmacion?ref=${bookingRef}`);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -209,16 +294,28 @@ export default function PuntoDeVentaPage() {
     }).format(amount);
   };
 
+  const formatTime = (timeString: string) => {
+    try {
+      return new Date(timeString).toLocaleTimeString('es-EC', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return timeString;
+    }
+  };
+
   // Render seat grid
   const renderSeats = () => {
-    if (!selectedTrip || !selectedTrip.seats) return null;
+    if (!selectedTrip || !tripSeats || tripSeats.length === 0) return null;
 
-    const rows = Math.max(...selectedTrip.seats.map(s => s.row));
-    const cols = Math.max(...selectedTrip.seats.map(s => s.column));
+    const rows = Math.max(...tripSeats.map(s => s.row));
+    const cols = Math.max(...tripSeats.map(s => s.column));
 
     const seatGrid: (Seat | null)[][] = Array(rows).fill(null).map(() => Array(cols).fill(null));
 
-    selectedTrip.seats.forEach(seat => {
+    tripSeats.forEach(seat => {
       if (seat.row > 0 && seat.column > 0 && seatGrid[seat.row - 1]) {
         seatGrid[seat.row - 1]![seat.column - 1] = seat;
       }
@@ -242,7 +339,7 @@ export default function PuntoDeVentaPage() {
                   onClick={() => toggleSeat(seat)}
                   disabled={!isAvailable}
                   className={`
-                    w-12 h-12 rounded-md border-2 font-semibold text-sm transition-all
+                    w-12 h-12 sm:w-14 sm:h-14 rounded-md border-2 font-semibold text-sm transition-all
                     ${isSelected
                       ? 'bg-green-500 border-green-600 text-white'
                       : isAvailable
@@ -261,6 +358,17 @@ export default function PuntoDeVentaPage() {
     );
   };
 
+  const getSeatModeLabel = (mode: SeatSelectionMode) => {
+    switch (mode) {
+      case 'NONE':
+        return 'Solo cantidad';
+      case 'OPTIONAL':
+        return 'Asientos opcionales';
+      case 'REQUIRED':
+        return 'Asientos requeridos';
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -271,200 +379,279 @@ export default function PuntoDeVentaPage() {
         </p>
       </div>
 
-      {/* Progress Steps */}
+      {/* Date Selector */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            {[1, 2, 3].map((step) => (
-              <div key={step} className="flex items-center flex-1">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`
-                      w-10 h-10 rounded-full flex items-center justify-center font-semibold
-                      ${currentStep >= step
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-gray-200 text-gray-600'
-                      }
-                    `}
-                  >
-                    {currentStep > step ? <Check className="h-5 w-5" /> : step}
-                  </div>
-                  <div className="hidden sm:block">
-                    <p className="font-medium">
-                      {step === 1 && 'Seleccionar Viaje'}
-                      {step === 2 && 'Seleccionar Asientos'}
-                      {step === 3 && 'Datos y Pago'}
-                    </p>
-                  </div>
-                </div>
-                {step < 3 && (
-                  <div className="flex-1 h-1 mx-4 bg-gray-200">
-                    <div
-                      className={`h-full transition-all ${
-                        currentStep > step ? 'bg-primary' : 'bg-gray-200'
-                      }`}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <Label htmlFor="selectedDate" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Fecha
+              </Label>
+              <Input
+                id="selectedDate"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                min={format(new Date(), 'yyyy-MM-dd')}
+                className="mt-2"
+              />
+            </div>
+            <Button onClick={loadAvailableTrips} disabled={loadingServices}>
+              {loadingServices ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Actualizar
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Step 1: Search and select trip */}
-      {currentStep === 1 && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Buscar Viajes</CardTitle>
-              <CardDescription>
-                Selecciona la fecha para ver los viajes disponibles
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <Label htmlFor="searchDate">Fecha</Label>
-                  <Input
-                    id="searchDate"
-                    type="date"
-                    value={searchDate}
-                    onChange={(e) => setSearchDate(e.target.value)}
-                    min={format(new Date(), 'yyyy-MM-dd')}
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button onClick={searchTrips} disabled={loadingTrips}>
-                    {loadingTrips ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Search className="mr-2 h-4 w-4" />
-                    )}
-                    Buscar
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {trips.length > 0 && (
+      {/* Service Groups */}
+      {!selectedTrip && (
+        <div className="space-y-3">
+          {loadingServices ? (
             <Card>
-              <CardHeader>
-                <CardTitle>Viajes Disponibles</CardTitle>
-                <CardDescription>
-                  {trips.length} {trips.length === 1 ? 'viaje encontrado' : 'viajes encontrados'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {trips.map((trip) => (
-                    <Card key={trip.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-2 flex-1">
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-semibold">
-                                {trip.service?.origin} → {trip.service?.destination}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                <span>{new Date(trip.departureTime).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Users className="h-3 w-3" />
-                                <span>{trip.availableSeats} disponibles</span>
-                              </div>
-                              <span className="font-semibold text-primary">
-                                {formatCurrency(trip.pricePerSeat)}
-                              </span>
-                            </div>
-                          </div>
-                          <Button onClick={() => selectTrip(trip)}>
-                            Seleccionar
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+              <CardContent className="py-8 text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                <p className="text-muted-foreground">Cargando viajes...</p>
               </CardContent>
             </Card>
+          ) : serviceGroups.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <p className="text-muted-foreground">
+                  No hay viajes disponibles para la fecha seleccionada
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            serviceGroups.map((service) => (
+              <Collapsible
+                key={service.serviceId}
+                open={expandedServices.has(service.serviceId)}
+                onOpenChange={() => toggleService(service.serviceId)}
+              >
+                <Card>
+                  <CollapsibleTrigger className="w-full">
+                    <CardHeader className="cursor-pointer hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 text-left">
+                          <CardTitle className="flex items-center gap-2">
+                            <MapPin className="h-5 w-5 text-primary" />
+                            {service.serviceName}
+                          </CardTitle>
+                          <CardDescription className="flex items-center gap-3 mt-2">
+                            <span>{service.origin} → {service.destination}</span>
+                            <Badge variant="outline">{getSeatModeLabel(service.seatSelectionMode)}</Badge>
+                            <span className="text-xs">{service.trips.length} viajes</span>
+                          </CardDescription>
+                        </div>
+                        {expandedServices.has(service.serviceId) ? (
+                          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="space-y-2 pt-0">
+                      {service.trips.map((trip) => (
+                        <div
+                          key={trip.id}
+                          className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg hover:shadow-md transition-shadow gap-3"
+                        >
+                          <div className="flex-1 space-y-2 w-full sm:w-auto">
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                <span>{formatTime(trip.departureTime)}</span>
+                              </div>
+                              {trip.arrivalTime && (
+                                <>
+                                  <span>→</span>
+                                  <span>{formatTime(trip.arrivalTime)}</span>
+                                </>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 text-sm flex-wrap">
+                              <div className="flex items-center gap-1">
+                                <Bus className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-muted-foreground">{trip.vehiclePlate}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Users className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-muted-foreground">{trip.availableSeats} disponibles</span>
+                              </div>
+                              {trip.hasMultipleFloors && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {trip.floorCount} pisos
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 w-full sm:w-auto">
+                            <span className="font-bold text-primary text-lg">
+                              {formatCurrency(trip.pricePerSeat)}
+                            </span>
+                            <Button onClick={() => selectTrip(trip)} className="w-full sm:w-auto">
+                              Seleccionar
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            ))
           )}
         </div>
       )}
 
-      {/* Step 2: Select seats */}
-      {currentStep === 2 && selectedTrip && (
-        <div className="space-y-6">
+      {/* Booking Form (when trip selected) */}
+      {selectedTrip && (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Trip Summary */}
           <Card>
             <CardHeader>
-              <CardTitle>Seleccionar Asientos</CardTitle>
-              <CardDescription>
-                Viaje: {selectedTrip.service?.origin} → {selectedTrip.service?.destination} | {new Date(selectedTrip.departureTime).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: true })}
-              </CardDescription>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle>Viaje Seleccionado</CardTitle>
+                  <CardDescription className="mt-2 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>{selectedTrip.vehiclePlate} | {formatTime(selectedTrip.departureTime)}</span>
+                    </div>
+                    <Badge variant="outline">{getSeatModeLabel(selectedTrip.seatSelectionMode)}</Badge>
+                  </CardDescription>
+                </div>
+                <Button type="button" variant="outline" onClick={() => setSelectedTrip(null)}>
+                  Cambiar Viaje
+                </Button>
+              </div>
+            </CardHeader>
+          </Card>
+
+          {/* Seat or Quantity Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {selectedTrip.seatSelectionMode === 'NONE' ? 'Cantidad de Pasajeros' : 'Seleccionar Asientos'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                {/* Legend */}
-                <div className="flex gap-6 justify-center">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded border-2 bg-white border-gray-300" />
-                    <span className="text-sm">Disponible</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded border-2 bg-green-500 border-green-600" />
-                    <span className="text-sm">Seleccionado</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded border-2 bg-gray-200 border-gray-300" />
-                    <span className="text-sm">Ocupado</span>
-                  </div>
-                </div>
-
-                {/* Seat Grid */}
-                {renderSeats()}
-
-                {/* Selected seats summary */}
-                {selectedSeats.length > 0 && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="font-semibold mb-2">Asientos seleccionados:</p>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {selectedSeats.map((seat) => (
-                        <Badge key={seat.id} variant="default">
-                          {seat.seatNumber}
-                        </Badge>
-                      ))}
+              {selectedTrip.seatSelectionMode === 'NONE' ? (
+                <div className="space-y-4">
+                  {/* Quantity Selector */}
+                  <div>
+                    <Label>Cantidad de pasajeros</Label>
+                    <div className="flex items-center gap-4 mt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <Input
+                        type="number"
+                        value={quantity}
+                        onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-24 text-center text-lg font-semibold"
+                        min={1}
+                        max={selectedTrip.availableSeats}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setQuantity(Math.min(selectedTrip.availableSeats, quantity + 1))}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        (máx: {selectedTrip.availableSeats})
+                      </span>
                     </div>
+                  </div>
+
+                  {/* Floor Selector (if multi-floor vehicle) */}
+                  {selectedTrip.hasMultipleFloors && selectedTrip.floorCount && (
+                    <div>
+                      <Label>Piso</Label>
+                      <div className="flex gap-2 mt-2">
+                        {Array.from({ length: selectedTrip.floorCount }, (_, i) => i + 1).map((floor) => (
+                          <Button
+                            key={floor}
+                            type="button"
+                            variant={selectedFloor === floor ? 'default' : 'outline'}
+                            onClick={() => setSelectedFloor(floor)}
+                          >
+                            Piso {floor}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <p className="text-lg font-bold">
-                      Total: {formatCurrency(selectedSeats.length * selectedTrip.pricePerSeat)}
+                      Total: {formatCurrency(quantity * selectedTrip.pricePerSeat)}
                     </p>
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Legend */}
+                  <div className="flex gap-6 justify-center flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded border-2 bg-white border-gray-300" />
+                      <span className="text-sm">Disponible</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded border-2 bg-green-500 border-green-600" />
+                      <span className="text-sm">Seleccionado</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded border-2 bg-gray-200 border-gray-300" />
+                      <span className="text-sm">Ocupado</span>
+                    </div>
+                  </div>
+
+                  {/* Seat Grid */}
+                  {renderSeats()}
+
+                  {/* Selected seats summary */}
+                  {selectedSeats.length > 0 && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="font-semibold mb-2">Asientos seleccionados:</p>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {selectedSeats.map((seat) => (
+                          <Badge key={seat.id} variant="default">
+                            {seat.seatNumber}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-lg font-bold">
+                        Total: {formatCurrency(selectedSeats.length * selectedTrip.pricePerSeat)}
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedTrip.seatSelectionMode === 'OPTIONAL' && (
+                    <p className="text-sm text-muted-foreground text-center">
+                      Puedes seleccionar asientos específicos o dejar en blanco para asignación automática
+                    </p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver
-            </Button>
-            <Button onClick={goToPayment} disabled={selectedSeats.length === 0}>
-              Continuar
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3: Contact and payment */}
-      {currentStep === 3 && selectedTrip && (
-        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Contact Data */}
           <Card>
             <CardHeader>
               <CardTitle>Datos del Cliente</CardTitle>
@@ -472,7 +659,7 @@ export default function PuntoDeVentaPage() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="documentType">Tipo de Documento *</Label>
                     <Select
@@ -503,7 +690,7 @@ export default function PuntoDeVentaPage() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="firstName">Nombres *</Label>
                     <Input
@@ -527,7 +714,7 @@ export default function PuntoDeVentaPage() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="phone">Teléfono *</Label>
                     <Input
@@ -556,6 +743,7 @@ export default function PuntoDeVentaPage() {
             </CardContent>
           </Card>
 
+          {/* Payment Data */}
           <Card>
             <CardHeader>
               <CardTitle>Información de Pago</CardTitle>
@@ -563,7 +751,7 @@ export default function PuntoDeVentaPage() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="paymentMethod">Método de Pago *</Label>
                     <Select
@@ -598,7 +786,7 @@ export default function PuntoDeVentaPage() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="receiptNumber">Número de Recibo (opcional)</Label>
                     <Input
@@ -624,24 +812,29 @@ export default function PuntoDeVentaPage() {
                     </Label>
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="sendFormVia">Enviar Formulario de Pasajeros *</Label>
-                  <Select
-                    value={sendFormVia}
-                    onValueChange={(value: 'WHATSAPP' | 'EMAIL' | 'NONE') =>
-                      setSendFormVia(value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="WHATSAPP">Por WhatsApp</SelectItem>
-                      <SelectItem value="EMAIL">Por Email</SelectItem>
-                      <SelectItem value="NONE">No enviar</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+
+                {/* Only show form sending option if trip requires passenger info */}
+                {selectedTrip.requiresPassengerInfo && (
+                  <div>
+                    <Label htmlFor="sendFormVia">Enviar Formulario de Pasajeros *</Label>
+                    <Select
+                      value={sendFormVia}
+                      onValueChange={(value: 'WHATSAPP' | 'EMAIL' | 'NONE') =>
+                        setSendFormVia(value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="WHATSAPP">Por WhatsApp</SelectItem>
+                        <SelectItem value="EMAIL">Por Email</SelectItem>
+                        <SelectItem value="NONE">No enviar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div>
                   <Label htmlFor="notes">Notas (opcional)</Label>
                   <Input
@@ -655,55 +848,9 @@ export default function PuntoDeVentaPage() {
             </CardContent>
           </Card>
 
-          {/* Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Resumen de la Venta</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Viaje:</span>
-                  <span className="font-medium">
-                    {selectedTrip.service?.origin} → {selectedTrip.service?.destination}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Fecha:</span>
-                  <span className="font-medium">
-                    {format(parseISO(selectedTrip.departureDate), 'dd MMM yyyy', { locale: es })}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Hora:</span>
-                  <span className="font-medium">{new Date(selectedTrip.departureTime).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Asientos:</span>
-                  <div className="flex gap-1">
-                    {selectedSeats.map((seat) => (
-                      <Badge key={seat.id} variant="outline">
-                        {seat.seatNumber}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex justify-between pt-4 border-t">
-                  <span className="text-lg font-semibold">Total:</span>
-                  <span className="text-lg font-bold text-primary">
-                    {formatCurrency(selectedSeats.length * selectedTrip.pricePerSeat)}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => setCurrentStep(2)}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver
-            </Button>
-            <Button type="submit" disabled={submitting}>
+          {/* Submit */}
+          <div className="flex justify-end">
+            <Button type="submit" disabled={submitting} size="lg">
               {submitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

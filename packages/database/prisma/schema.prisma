@@ -140,16 +140,19 @@ model Service {
   id              String   @id @default(uuid())
   providerId      String
   serviceTypeId   String
-  
+
   origin          String   @db.VarChar(100)
   destination     String   @db.VarChar(100)
   name            String   @db.VarChar(200)
   basePrice       Decimal? @db.Decimal(10,2)
   duration        Int?     // Duración en minutos
-  
+
+  seatSelectionMode      SeatSelectionMode @default(REQUIRED)
+  requiresPassengerInfo  Boolean           @default(true)
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   provider        Provider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
   serviceType     ServiceType @relation(fields: [serviceTypeId], references: [id])
   scheduledTrips  ScheduledTrip[]
@@ -167,7 +170,7 @@ model ScheduledTrip {
   id              String   @id @default(uuid())
   serviceId       String
   vehicleId       String
-  
+
   departureDate   DateTime @db.Date
   departureTime   DateTime @db.Time
   totalSeats      Int
@@ -175,10 +178,12 @@ model ScheduledTrip {
   pricePerSeat    Decimal  @db.Decimal(10,2)
   bookingMode     BookingMode @default(PER_SEAT)
   status          TripStatus @default(SCHEDULED)
-  
+
+  seatSelectionMode  SeatSelectionMode?  // NULL = inherit from Service
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   service         Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   vehicle         Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   reservations    Reservation[]
@@ -187,6 +192,7 @@ model ScheduledTrip {
   @@index([serviceId, departureDate])
   @@index([vehicleId, departureDate])
   @@index([departureDate, status])
+  @@index([departureDate, serviceId, status])
   @@map("scheduled_trips")
 }
 
@@ -262,6 +268,12 @@ enum DocumentType {
   CEDULA
   RUC
   PASSPORT
+}
+
+enum SeatSelectionMode {
+  NONE      // No seat selection - quantity only
+  OPTIONAL  // Seats can be selected but not required
+  REQUIRED  // Must select specific seats (current behavior)
 }
 
 // ============================================
@@ -377,12 +389,13 @@ model ReservationSeat {
   reservationId   String
   tripSeatId      String   @unique
   passengerId     String?  @unique
-  seatId          String
-  
+  seatId          String?  // Nullable for quantity-only bookings
+  floorNumber     Int?     // 1, 2, 3, etc. for double-decker without seat assignment
+
   reservation     Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   tripSeat        TripSeat @relation(fields: [tripSeatId], references: [id], onDelete: Restrict)
   passenger       Passenger? @relation(fields: [passengerId], references: [id], onDelete: SetNull)
-  seat            Seat @relation(fields: [seatId], references: [id], onDelete: Restrict)
+  seat            Seat? @relation(fields: [seatId], references: [id], onDelete: Restrict)
 
   @@index([reservationId])
   @@map("reservation_seats")

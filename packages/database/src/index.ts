@@ -12,6 +12,7 @@ export {
   TripStatus,
   SeatStatus,
   DocumentType,
+  SeatSelectionMode,
   ReservationType,
   ReservationStatus,
   BookingChannel,

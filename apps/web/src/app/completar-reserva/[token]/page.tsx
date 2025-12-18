@@ -12,6 +12,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 interface PassengerFormData {
   bookingReference: string;
+  requiresPassengerInfo: boolean; // NEW: Indicates if passenger details are required
   tripInfo: {
     origin: string;
     destination: string;
@@ -171,11 +172,13 @@ export default function CompletarReservaPage() {
                         {passenger.documentType}: {passenger.documentNumber}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <span className="inline-block bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded">
-                        Asiento {passenger.seatNumber}
-                      </span>
-                    </div>
+                    {passenger.seatNumber && (
+                      <div className="text-right">
+                        <span className="inline-block bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded">
+                          Asiento {passenger.seatNumber}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -221,6 +224,63 @@ export default function CompletarReservaPage() {
           >
             Volver al inicio
           </a>
+        </div>
+      </div>
+    );
+  }
+
+  // Si no se requiere información de pasajeros
+  if (!formData.requiresPassengerInfo) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="max-w-2xl w-full bg-white rounded-lg shadow-lg p-8">
+          <div className="text-center mb-6">
+            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Reserva Confirmada
+            </h1>
+            <p className="text-gray-600">
+              No se requiere información adicional de pasajeros para esta reserva
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+            <h2 className="font-semibold text-gray-900 mb-2">
+              Código de Reserva
+            </h2>
+            <p className="text-3xl font-bold text-blue-600">
+              {formData.bookingReference}
+            </p>
+            <p className="text-sm text-gray-600 mt-2">
+              Presenta este código al abordar el vehículo
+            </p>
+          </div>
+
+          <TripInfoCard
+            tripInfo={formData.tripInfo}
+            contact={formData.contact}
+            seats={formData.seats}
+          />
+
+          {formData.seats.length === 0 && formData.passengersRequired > 0 && (
+            <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <p className="text-gray-700">
+                <span className="font-semibold">Cantidad de pasajeros:</span> {formData.passengersRequired}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">
+                Los asientos serán asignados al momento del abordaje
+              </p>
+            </div>
+          )}
+
+          <div className="mt-6 text-center">
+            <a
+              href="/"
+              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
+            >
+              Volver al inicio
+            </a>
+          </div>
         </div>
       </div>
     );

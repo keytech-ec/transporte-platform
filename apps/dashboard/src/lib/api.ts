@@ -54,6 +54,8 @@ export interface Service {
   duration?: number; // Duration in minutes
   type: 'regular' | 'express' | 'vip' | 'direct' | 'with_stops';
   status: 'active' | 'inactive';
+  seatSelectionMode: 'NONE' | 'OPTIONAL' | 'REQUIRED';
+  requiresPassengerInfo: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -183,7 +185,9 @@ export interface ReservationsChartData {
 
 export interface CreateManualSaleData {
   tripId: string;
-  seatIds: string[];
+  seatIds?: string[]; // Optional: for REQUIRED/OPTIONAL seat selection modes
+  quantity?: number; // Optional: for NONE seat selection mode (quantity-based booking)
+  floorNumber?: number; // Optional: for NONE mode with multi-floor vehicles
   contact: {
     documentType: 'CEDULA' | 'PASSPORT' | 'RUC';
     documentNumber: string;
@@ -485,6 +489,12 @@ class ApiClient {
   }
 
   // Sales
+  async getAvailableTrips(date?: string): Promise<any> {
+    const params = date ? { date } : {};
+    const response = await this.client.get('/sales/available', { params });
+    return response.data;
+  }
+
   async createManualSale(data: CreateManualSaleData): Promise<ManualSaleResult> {
     const response = await this.client.post<ManualSaleResult>('/sales/create', data);
     return response.data;

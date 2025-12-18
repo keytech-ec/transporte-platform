@@ -8,14 +8,16 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { SalesService } from './sales.service';
 import { CreateManualSaleDto } from './dto/create-manual-sale.dto';
+import { AvailableTripsResponseDto } from './dto/available-trips-response.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from '@transporte-platform/database';
+import { format } from 'date-fns';
 
 @ApiTags('sales')
 @Controller('sales')
@@ -146,6 +148,25 @@ export class SalesController {
       success: true,
       data,
       message: 'Link regenerado exitosamente',
+    };
+  }
+
+  @Get('available')
+  @ApiOperation({ summary: 'Obtener viajes disponibles agrupados por servicio para POS' })
+  @ApiQuery({ name: 'date', required: false, example: '2025-12-17', description: 'Fecha en formato YYYY-MM-DD (default: hoy)' })
+  @ApiResponse({ status: 200, description: 'Viajes agrupados por servicio', type: AvailableTripsResponseDto })
+  async getAvailableTrips(
+    @Query('date') date?: string,
+    @CurrentUser() user?: any,
+  ) {
+    const targetDate = date || format(new Date(), 'yyyy-MM-dd');
+    const providerId = user?.providerId || null;
+
+    const data = await this.salesService.getAvailableTripsByDate(targetDate, providerId);
+
+    return {
+      success: true,
+      data,
     };
   }
 }

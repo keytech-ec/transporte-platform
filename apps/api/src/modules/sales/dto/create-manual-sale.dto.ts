@@ -53,11 +53,22 @@ export class CreateManualSaleDto {
   @IsString()
   tripId: string;
 
-  @ApiProperty({ type: [String] })
+  // Flexible booking: either seatIds OR quantity
+  @ApiProperty({ type: [String], required: false, description: 'For REQUIRED/OPTIONAL seat selection modes' })
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @IsString({ each: true })
-  seatIds: string[];
+  seatIds?: string[];
+
+  @ApiProperty({ required: false, description: 'For NONE seat selection mode (quantity-based booking)' })
+  @IsOptional()
+  @IsNumber()
+  quantity?: number;
+
+  @ApiProperty({ required: false, description: 'Floor number for multi-floor vehicles when using quantity-based booking' })
+  @IsOptional()
+  @IsNumber()
+  floorNumber?: number;
 
   @ApiProperty({ type: ContactDto })
   @IsObject()
@@ -76,7 +87,8 @@ export class CreateManualSaleDto {
   @IsString()
   notes?: string;
 
-  @ApiProperty({ enum: ['WHATSAPP', 'EMAIL', 'NONE'] })
+  @ApiProperty({ enum: ['WHATSAPP', 'EMAIL', 'NONE'], required: false })
+  @IsOptional()
   @IsEnum(['WHATSAPP', 'EMAIL', 'NONE'])
-  sendFormVia: 'WHATSAPP' | 'EMAIL' | 'NONE';
+  sendFormVia?: 'WHATSAPP' | 'EMAIL' | 'NONE';
 }

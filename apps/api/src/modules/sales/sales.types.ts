@@ -23,8 +23,10 @@ export interface PaymentInfo {
 export interface CreateManualSaleResult {
   reservationId: string;
   bookingReference: string;
-  passengerFormUrl: string;
-  passengerFormToken: string;
+  needsPassengerForm: boolean;
+  passengerFormUrl?: string;
+  passengerFormToken?: string;
+  formExpiresAt?: Date;
   whatsappUrl?: string;
 }
 
